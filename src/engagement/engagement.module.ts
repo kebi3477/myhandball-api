@@ -1,5 +1,4 @@
 import { Module } from "@nestjs/common";
-import { ThrottlerModule } from "@nestjs/throttler";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { CacheModule } from "../cache/cache.module";
 import { GameModule } from "../game/game.module";
@@ -18,8 +17,6 @@ import { Prediction } from "./prediction.entity";
 @Module({
   imports: [
     TypeOrmModule.forFeature([Prediction, MvpVote, Cheer, CheerLike, MatchState]),
-    // 쓰기 엔드포인트에만 걸린다 (@UseGuards(ThrottlerGuard)). IP 기준 분당 30회
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 30 }]),
     CacheModule,
     GameModule,
     PlayerModule,

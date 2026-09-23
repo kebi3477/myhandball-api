@@ -19,6 +19,7 @@
     "cheerio": "^1.1.2",
     "dayjs": "^1.11.19",
     "dotenv": "^17.2.3",
+    "firebase-admin": "^13.10.0",
     "ioredis": "^5.8.2",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",

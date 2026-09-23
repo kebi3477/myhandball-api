@@ -8,7 +8,7 @@ import { GameService } from "../game/game.service";
 import { LiveEvent } from "./live-event.entity";
 import { MatchState } from "./match-state.entity";
 import { computeStatus } from "./match-status";
-import { PbpResult, parsePbp, pbpRowKey } from "./pbp.parser";
+import { PbpResult, PbpRow, parsePbp, pbpRowKey } from "./pbp.parser";
 import type { GameLiveResponse, LiveEventItem } from "./types";
 
 const PBP_EMPTY_TTL_SEC = 60 * 60 * 6;
@@ -16,6 +16,7 @@ const PBP_EMPTY_TTL_SEC = 60 * 60 * 6;
 export interface SyncResult {
   pbp: PbpResult;
   added: number;
+  newGoals: PbpRow[]; // 이번에 처음 본 득점 행 (푸시용)
 }
 
 @Injectable()
@@ -43,6 +44,7 @@ export class LiveService {
     const pbp = parsePbp(cheerio.load(await fetchHtml(this.pbpUrl(matchSeq))));
     const now = new Date();
 
+    const newGoals: PbpRow[] = [];
     const added = await this.dataSource.transaction(async (em) => {
       const repo = em.getRepository(LiveEvent);
       const existing = new Map((await repo.find({ where: { matchSeq } })).map((e) => [e.rowKey, e]));
@@ -69,6 +71,7 @@ export class LiveService {
         } else {
           toSave.push(repo.create({ matchSeq, rowKey, ...fields, observedAt: observed ? now : null }));
           addedCount++;
+          if (r.scoredBy) newGoals.push(r);
         }
       }
       const stale = [...existing.values()].filter((e) => !seen.has(e.rowKey));
@@ -77,7 +80,7 @@ export class LiveService {
       return addedCount;
     });
 
-    return { pbp, added };
+    return { pbp, added, newGoals };
   }
 
   async getLive(matchSeq: number): Promise<GameLiveResponse> {

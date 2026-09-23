@@ -5,7 +5,7 @@
 - 데이터는 전부 `koreahandball.com` 스크래핑 (`.env`의 `BASE`). `robots.txt`는 전면 허용
 - 전역 prefix `/api` (`src/main.ts`), **인증 없음**
 - Redis 캐시(`CacheService`), Postgres(TypeORM)는 `welcome`(환영 설문), `live`(경기 중계·상태),
-  `engagement`(예측·MVP 투표·응원글)에서 사용
+  `engagement`(예측·MVP 투표·응원글), `push`(푸시 토큰·발송 기록)에서 사용
 
 ## 클라이언트와 하위 호환
 
@@ -159,7 +159,8 @@
 
 - 엔티티: `WelcomeSubmission`(`welcome_submissions`), `LiveEvent`(`live_events`),
   `MatchState`(`match_states`), `Prediction`(`predictions`), `MvpVote`(`mvp_votes`),
-  `Cheer`(`cheers`), `CheerLike`(`cheer_likes`). 컬럼은 `@Column({ name: 'snake_case' })`로 매핑하고,
+  `Cheer`(`cheers`), `CheerLike`(`cheer_likes`), `PushToken`(`push_tokens`),
+  `PushLog`(`push_logs`). 컬럼은 `@Column({ name: 'snake_case' })`로 매핑하고,
   시각은 `timestamptz`
 - 모듈은 `TypeOrmModule.forFeature([Entity])`로 등록한다. `autoLoadEntities: true`라
   엔티티 목록을 따로 관리하지 않는다
@@ -199,9 +200,21 @@
   없어서 `PlayerService.lookupPlayerSeq`(로스터의 이름·배번)로 찾는다. 못 찾으면 `null`이고
   이름으로 투표한다
 - 쓰기 엔드포인트에만 `ThrottlerGuard`(IP 기준 분당 30회)를 건다. 조회에는 걸지 않는다.
+  `ThrottlerModule`은 전역 모듈이라 `AppModule`에서 한 번만 `forRoot`한다.
   프록시 뒤에서는 `trust proxy` 설정이 필요하다 (07 B-2)
 - 응원글 작성자는 익명이다. 서버가 이름을 만들지 않는다. 차단은 지금 `cheers.hidden`을
   수동으로 켜는 것뿐이다 (07 B-1)
+
+## 푸시·위젯 (src/push, src/widget)
+
+- 푸시는 폴러(`LivePollerService`)가 부른다. 시작 10분 전(폴링 시작 시 경기 전일 때만), 득점,
+  종료. 시작·종료는 `push_logs`의 unique(match_seq, kind)로 경기당 한 번만 나가고,
+  득점은 `PushService`가 120초 창으로 묶는다(창은 메모리). 푸시 실패는 폴링을 멈추지 않는다
+- FCM 자격증명(`FCM_*`)이 없으면 **드라이런**이다. 발송 대신 `[dry-run]` 로그를 남긴다
+- 대상은 경기 두 팀 중 하나를 마이팀으로 등록한 기기다. 종료 알림은 받는 팀 기준으로 승·패·무를 붙인다
+- 위젯 상태 판정은 순수 함수 `widget.builder.ts`의 `buildWidget(games, now)`다. 시각을
+  넣어 과거 시즌 데이터로 검증할 수 있다. 위젯은 자체 캐시가 없다
+- 현재 시즌은 `common/season.ts`의 `currentSeason()`(KST 8월부터 새 시즌)이다. 폴러와 위젯이 같이 쓴다
 
 ## 작업 로드맵
 
@@ -220,8 +233,9 @@
 
 - 01·02·03은 서로 독립이다
 - **04와 06은 "경기 중에 PBP가 실시간으로 갱신된다"는 미검증 가정 위에 있다.**
-  04는 문서의 `detail.php` 점수 대신 PBP를 폴링하도록 구현했다. 개막(11월) 후 첫
-  경기에서 먼저 확인한다 (아래 "실시간 폴링" 참고)
+  04는 문서의 `detail.php` 점수 대신 PBP를 폴링하도록 구현했다. 06은 전체판으로 만들었고,
+  가정이 틀리면 LIVE와 득점 푸시가 저절로 나가지 않는다. 개막(11월) 후 첫 경기에서 먼저
+  확인한다 (07 A-1, A-4)
 
 ## 실행·검증
 

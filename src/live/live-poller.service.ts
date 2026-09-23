@@ -2,6 +2,9 @@ import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from "@ne
 import { Cron } from "@nestjs/schedule";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { PushService } from "../push/push.service";
+import type { PushMatch } from "../push/types";
+import { currentSeason, kstDateString } from "../common/season";
 import { ScheduleService } from "../schedule/schedule.service";
 import { LiveService } from "./live.service";
 import { MatchState } from "./match-state.entity";
@@ -16,11 +19,9 @@ interface Target {
   matchSeq: number;
   startsAt: Date;
   label: string;
-}
-
-/** "YYYY-MM-DD" (KST) */
-function kstDate(d: Date): string {
-  return new Date(d.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  homeName: string;
+  awayName: string;
+  timeLabel: string | null;
 }
 
 /**
@@ -37,7 +38,21 @@ export class LivePollerService implements OnApplicationBootstrap, OnModuleDestro
     private readonly scheduleService: ScheduleService,
     private readonly liveService: LiveService,
     @InjectRepository(MatchState) private readonly states: Repository<MatchState>,
+    private readonly pushService: PushService,
   ) {}
+
+  private pushMatch(t: Target): PushMatch {
+    return { matchSeq: t.matchSeq, homeName: t.homeName, awayName: t.awayName };
+  }
+
+  /** 푸시 실패가 폴링을 멈추지 않도록 */
+  private async safePush(what: string, fn: () => Promise<unknown> | unknown) {
+    try {
+      await fn();
+    } catch (e) {
+      this.logger.error(`푸시 실패 (${what}): ${e}`);
+    }
+  }
 
   onApplicationBootstrap() {
     if (process.env.LIVE_POLLING === "false") {
@@ -66,12 +81,9 @@ export class LivePollerService implements OnApplicationBootstrap, OnModuleDestro
   }
 
   private async todaysGames(): Promise<Target[]> {
-    const now = new Date();
-    const today = kstDate(now);
-    const [y, m] = today.split("-").map(Number);
-    // 시즌 표기는 시작 연도 (2025 = 25-26 시즌, 11월 개막)
-    const season = String(m >= 8 ? y : y - 1);
-    const month = String(m).padStart(2, "0");
+    const today = kstDateString();
+    const season = currentSeason();
+    const month = today.slice(5, 7);
 
     const out: Target[] = [];
     for (const gender of ["M", "W"] as const) {
@@ -85,6 +97,9 @@ export class LivePollerService implements OnApplicationBootstrap, OnModuleDestro
               matchSeq: g.matchSeq,
               startsAt: new Date(g.startsAt),
               label: `${g.matchSeq} ${g.home.name}-${g.away.name} ${g.time ?? ""}`,
+              homeName: g.home.name,
+              awayName: g.away.name,
+              timeLabel: g.time,
             });
           }
         }
@@ -122,13 +137,17 @@ export class LivePollerService implements OnApplicationBootstrap, OnModuleDestro
       }),
     );
     this.logger.log(`폴링 시작: ${t.label}`);
+    // 시작 전에 폴링이 시작됐을 때만 "곧 시작" 알림 (경기 중 재시작 시에는 보내지 않음)
+    if (Date.now() < t.startsAt.getTime()) {
+      await this.safePush("start", () => this.pushService.notifyStart(this.pushMatch(t), t.timeLabel));
+    }
     await this.tick(t, 0);
   }
 
   private async tick(t: Target, failures: number) {
     let nextDelay = POLL_INTERVAL_MS;
     try {
-      const { pbp, added } = await this.liveService.syncFromPbp(t.matchSeq, true);
+      const { pbp, added, newGoals } = await this.liveService.syncFromPbp(t.matchSeq, true);
       const state = await this.states.findOneByOrFail({ matchSeq: t.matchSeq });
       const last = pbp.rows[pbp.rows.length - 1];
       const now = new Date();
@@ -143,12 +162,31 @@ export class LivePollerService implements OnApplicationBootstrap, OnModuleDestro
       await this.states.save(state);
       failures = 0;
 
+      // 득점 푸시는 PushService가 120초 창으로 묶는다. 이미 끝난 뒤 한꺼번에 보인 득점은 보내지 않음
+      const goal = newGoals[newGoals.length - 1];
+      if (goal && !pbp.finished) {
+        await this.safePush("goal", () =>
+          this.pushService.queueGoal(this.pushMatch(t), {
+            scoreHome: state.scoreHome ?? goal.scoreHome,
+            scoreAway: state.scoreAway ?? goal.scoreAway,
+            scorerName: goal.playerName,
+            scoredBy: goal.scoredBy,
+            minute: goal.minute,
+          }),
+        );
+      }
+
       const idle = state.lastChangeAt && now.getTime() - state.lastChangeAt.getTime() >= LIVE_IDLE_MS;
       const tooLong = now.getTime() >= t.startsAt.getTime() + MAX_DURATION_MS;
       if (pbp.finished || idle || tooLong) {
         if (state.lastChangeAt) state.status = "finished";
         await this.states.save(state);
         const why = pbp.finished ? "경기종료" : idle ? "20분간 변화 없음" : "시작 +150분";
+        if (state.status === "finished") {
+          await this.safePush("end", () =>
+            this.pushService.notifyEnd(this.pushMatch(t), state.scoreHome, state.scoreAway),
+          );
+        }
         this.logger.log(`폴링 종료 (${why}): ${t.label} ${state.scoreHome}:${state.scoreAway}`);
         if (!pbp.started && !pbp.rows.length) {
           this.logger.warn(`PBP가 끝까지 비어 있었음 — 실시간 갱신이 안 되는 경기일 수 있음: ${t.label}`);
