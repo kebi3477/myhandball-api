@@ -14,15 +14,15 @@
 1. **기존 React 웹** (`../_legercy/myhandball/apps/web`) — 운영 중, 건드리지 않는다
 2. **새 Flutter 앱** (`../myhandball-app`) — 전 화면 구현 완료, 데이터만 목업.
    `HandballApiService`의 HTTP 구현체만 추가하면 붙는다. 그래서 **응답 스펙을 앱
-   도메인 모델과 맞추는 것**이 이 저장소 작업의 핵심이다. `docs/api-tasks/`의 응답
-   스펙을 임의로 바꾸지 말 것
+   도메인 모델과 맞추는 것**이 이 저장소 작업의 핵심이다. 지금 응답 스펙(각 모듈의
+   `types.ts`)을 임의로 바꾸지 말 것. 원래 지시서 스펙과 달라진 점은 07 C에 모아 두었다
 
 웹이 쓰는 `/api/schedule`, `/api/ranking`, `/api/team`에 대해:
 
 - **필드 추가는 OK, 제거·이름 변경·타입 변경은 금지**
 - 쿼리 파라미터 기본값도 웹이 기대는 동작이므로 바꾸지 않는다 (아래 표 참고)
 - 새 엔드포인트는 자유롭게 추가 가능
-- 이 제약은 웹을 내릴 때까지 유지된다. 풀리면 작업 지시서에 명시된다
+- 이 제약은 웹을 내릴 때까지 유지된다
 
 ## 스크래핑 규칙
 
@@ -40,7 +40,7 @@
 
 | 엔드포인트 | 원본 페이지 | gender 기본 | season 기본 | 잘못된 gender | 캐시 |
 |---|---|---|---|---|---|
-| `GET /api/schedule` | `/game/schedule_list.php` | `W` | `2025` | 빈 문자열이면 파라미터 생략, 그 외 그대로 전달 | 오늘 경기 있으면 60초, 없으면 10분 (04번에서 추가) |
+| `GET /api/schedule` | `/game/schedule_list.php` | `W` | `2025` | 빈 문자열이면 파라미터 생략, 그 외 그대로 전달 | 오늘 경기 있으면 60초, 없으면 10분 |
 | `GET /api/schedule/ics/my-team` | 위 페이지를 1~12월 **순차 12회** 요청 | `W` | `2025` | — | 일정 캐시를 탐 |
 | `GET /api/ranking` | `/game/teamranking.php` | `W` | **`2024`** (갱신 안 됨) | `W`로 강제 | 없음 |
 | `GET /api/team` | `/introduce/team_{men,women}.php` | `W` | — | `W`로 강제 | `teams:{M\|W}`, **24시간** |
@@ -67,8 +67,7 @@
 
 - **일정의 `<tr id>` / `ul#m…` 숫자는 경기 시작 시각이 아니라 경기일 00:00 KST의
   epoch다.** 게다가 `<tr id>`는 그날 첫 행에만 붙는다. 경기 시작 시각은 날짜 +
-  `time`을 KST로 합쳐 계산한다 (`GameItem.startsAt`, `kstIso`). 04 문서가 이 전제를
-  쓰고 있으니 주의
+  `time`을 KST로 합쳐 계산한다 (`GameItem.startsAt`, `kstIso`)
 - 일정 페이지에는 표(PC)와 `.record_list.mo_only` 리스트(모바일) 두 벌이 있고, 기존
   코드는 리스트 쪽을 파싱한다. 리스트 `li`에도 `match_seq` 링크가 있다
 - `detail.php`의 도넛 차트(`Total shots` 등) 퍼센트는 용어설명과 달리 **성공률이 아니라
@@ -131,8 +130,8 @@
   - 주의: 기존 3개 서비스는 이 원칙을 지키지 않는다. 요청 실패나 파싱 오류가 그대로
     500으로 전파된다. 기존 동작은 두고, 새 코드부터 지킨다
 - 파싱 결과가 0건이면 `Logger.warn`을 남긴다. 원본 HTML 개편을 빨리 알아채기 위함
-- 셀렉터는 `docs/api-tasks/`의 각 문서에 실측값이 있다. 추측하지 말고 그걸 따르거나
-  실제 페이지를 받아 확인한다
+- 셀렉터는 추측하지 말고 실제 페이지를 받아 확인한다. 지금까지 실측한 구조는 각 파서의
+  주석과 위 "실측한 함정"에 있다
 
 ### 캐시
 
@@ -141,7 +140,7 @@
 - `CacheModule`은 `@Global`이지만 `AppModule`에 등록돼 있지 않고 `TeamModule`이
   import해서 올라온다. 새 모듈에서 쓸 때는 해당 모듈에서 `CacheModule`을 import한다
 - 키 형태는 `teams:M`처럼 `{도메인}:{파라미터}`
-- **경기 중 데이터는 캐시하지 않는다** (04번 문서 참고). 권장 TTL은 각 작업 문서에 있다
+- **경기 중 데이터는 캐시하지 않는다** (아래 "실시간 폴링" 참고). TTL은 각 서비스의 상수에 있다
 - 경기 단위 캐시(`game:{matchSeq}`)는 `startsAt` 기준으로 정한다. 시작 전이면
   min(10분, 시작까지 남은 시간), 시작 후 3시간 안이면 캐시 안 함, 그 뒤로는 24시간
   (`GameService.ttlFor`)
@@ -170,7 +169,7 @@
 - 모듈은 `TypeOrmModule.forFeature([Entity])`로 등록한다. `autoLoadEntities: true`라
   엔티티 목록을 따로 관리하지 않는다
 - **`synchronize: true`다.** 엔티티를 고치면 운영 DB 스키마가 기동할 때 자동으로
-  바뀐다. 05번부터 사용자 데이터가 쌓이므로 **컬럼 이름 변경·삭제 금지**. 운영 전에
+  바뀐다. 사용자 데이터(예측·투표·응원글·푸시 토큰)가 쌓이므로 **컬럼 이름 변경·삭제 금지**. 운영 전에
   마이그레이션으로 전환해야 한다 (07 B-4)
 - 입력 검증은 class-validator 없이 컨트롤러에서 직접 하고 `BadRequestException`을
   던진다 (`welcome.controller.ts`)
@@ -201,7 +200,7 @@
   헤더가 없으면 400
 - 예측은 시작 전까지 덮어쓰기(`upsert`)가 가능하다. MVP는 종료 후(`computeStatus`) 1회만
   가능하고, 재투표는 unique 제약 위반 → 409
-- MVP 후보는 01번 선수기록의 득점+어시스트 상위 5명이다. 경기 기록에는 `player_seq`가
+- MVP 후보는 경기 선수기록(`/api/game/:matchSeq`)의 득점+어시스트 상위 5명이다. 경기 기록에는 `player_seq`가
   없어서 `PlayerService.lookupPlayerSeq`(로스터의 이름·배번)로 찾는다. 못 찾으면 `null`이고
   이름으로 투표한다
 - 쓰기 엔드포인트에만 `ThrottlerGuard`(IP 기준 분당 30회)를 건다. 조회에는 걸지 않는다.
@@ -224,24 +223,22 @@
 - 위젯은 개발 환경에서 `?now=<ISO 8601>`로 시각을 옮길 수 있다 (`+`는 `%2B`로 인코딩).
   그 시각 기준으로 상태를 다시 계산하고, `NODE_ENV=production`에서는 무시한다
 
-## 작업 로드맵
+## 엔드포인트 (API 작업 지시서 00~06 완료)
 
-`docs/api-tasks/`의 문서를 번호순으로 진행한다. 각 문서가 그 자체로 작업 지시서다.
+지시서 원문은 완료 후 지웠다 (git 이력에 있음). **남은 일과 확인할 것은
+`docs/api-tasks/07-후속-작업.md`에 모으고, 새로 알게 된 후속 과제도 여기에 쌓는다.**
 
-| # | 문서 | 만드는 것 | 선행 |
-|---|---|---|---|
-| 00 | 부트스트랩 | 이 `CLAUDE.md` | — |
-| 01 | 경기 상세 | `GET /api/game/:matchSeq` (전·후반, 팀 기록, 선수별 기록) | 00 |
-| 02 | 선수 도메인 | `GET /api/player`, `GET /api/player/:playerSeq`, `GET /api/player/ranking` | 00 |
-| 03 | 팀 상세 | `GET /api/team/:teamNum` (구단 소개, 코칭스태프, 팀 기록) | 00 |
-| 04 | 폴링 워커 | 경기 중 스코어 폴링과 경기 상태 판정, `GET /api/game/:matchSeq/live` | 01 |
-| 05 | 사용자 콘텐츠 | 승부 예측·MVP 투표(`/api/game/:matchSeq/{prediction,mvp}`), 응원글(`/api/team/:teamNum/cheer`) | 00 |
-| 06 | 푸시·위젯 | `POST/DELETE /api/push/register`, `GET /api/widget/my-team` | 04 |
-| 07 | 후속 작업 | 개막 후 확인, 서비스 전 필수 작업, 앱에 알릴 스펙 차이 — **새로 알게 된 후속 과제는 여기에 쌓는다** | — |
+| 모듈 | 엔드포인트 |
+|---|---|
+| schedule·ranking·team (기존, v1 웹 사용) | `GET /api/schedule`, `/api/schedule/ics/my-team`, `/api/ranking`, `/api/team` |
+| game | `GET /api/game/:matchSeq` (전·후반, 팀 기록, 선수별 기록) |
+| player | `GET /api/player`, `/api/player/:playerSeq`, `/api/player/ranking` |
+| team (상세) | `GET /api/team/:teamNum` (구단 소개, 코칭스태프, 선수, 팀 기록, 전적) |
+| live | `GET /api/game/:matchSeq/live` + PBP 폴링 워커, 일정에 경기 상태 |
+| engagement | `GET/POST /api/game/:matchSeq/{prediction,mvp}`, `/api/team/:teamNum/cheer` (+ `DELETE`, `/like`) |
+| push·widget | `POST/DELETE /api/push/register`, `GET /api/widget/my-team` |
 
-- 01·02·03은 서로 독립이다
-- **04와 06은 "경기 중에 PBP가 실시간으로 갱신된다"는 미검증 가정 위에 있다.**
-  04는 문서의 `detail.php` 점수 대신 PBP를 폴링하도록 구현했다. 06은 전체판으로 만들었고,
+- **live와 push는 "경기 중에 PBP가 실시간으로 갱신된다"는 미검증 가정 위에 있다.**
   가정이 틀리면 LIVE와 득점 푸시가 저절로 나가지 않는다. 개막(11월) 후 첫 경기에서 먼저
   확인한다 (07 A-1, A-4)
 

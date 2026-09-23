@@ -16,7 +16,7 @@ export interface MvpCandidateItem {
   teamName: string;
   side: "home" | "away";
   number: number | null;
-  statLine: string; // "8골 3AS" — 01번 선수 기록에서 생성
+  statLine: string; // "8골 3AS" — 경기 선수 기록(/api/game/:matchSeq)에서 생성
   votes: number;
 }
 

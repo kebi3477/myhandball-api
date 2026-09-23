@@ -13,7 +13,7 @@ export class MvpVote {
   @Column({ name: "device_id", type: "varchar", length: 64 })
   deviceId!: string;
 
-  /** 02번의 player_seq. 로스터에서 선수를 특정할 수 없으면 null이고 이름으로 센다 */
+  /** 선수 API(/api/player)의 player_seq. 로스터에서 선수를 특정할 수 없으면 null이고 이름으로 센다 */
   @Column({ name: "player_seq", type: "int", nullable: true })
   playerSeq!: number | null;
 

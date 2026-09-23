@@ -99,7 +99,7 @@ export class GameEngagementService {
 
   // ---------- MVP 투표 ----------
 
-  /** 경기 종료 후에만 열린다 (04번 경기 상태 판정 기준) */
+  /** 경기 종료 후에만 열린다 (live/match-status.ts의 경기 상태 판정 기준) */
   private async mvpOpen(detail: GameDetailResponse) {
     const state = await this.states.findOne({ where: { matchSeq: detail.matchSeq } });
     return (
