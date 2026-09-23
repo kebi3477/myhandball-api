@@ -4,7 +4,8 @@
 
 - 데이터는 전부 `koreahandball.com` 스크래핑 (`.env`의 `BASE`). `robots.txt`는 전면 허용
 - 전역 prefix `/api` (`src/main.ts`), **인증 없음**
-- Redis 캐시(`CacheService`), Postgres(TypeORM)는 `welcome`(환영 설문)과 `live`(경기 중계·상태)에서 사용
+- Redis 캐시(`CacheService`), Postgres(TypeORM)는 `welcome`(환영 설문), `live`(경기 중계·상태),
+  `engagement`(예측·MVP 투표·응원글)에서 사용
 
 ## 클라이언트와 하위 호환
 
@@ -157,13 +158,14 @@
 ## DB (TypeORM / Postgres)
 
 - 엔티티: `WelcomeSubmission`(`welcome_submissions`), `LiveEvent`(`live_events`),
-  `MatchState`(`match_states`). 컬럼은 `@Column({ name: 'snake_case' })`로 매핑하고,
+  `MatchState`(`match_states`), `Prediction`(`predictions`), `MvpVote`(`mvp_votes`),
+  `Cheer`(`cheers`), `CheerLike`(`cheer_likes`). 컬럼은 `@Column({ name: 'snake_case' })`로 매핑하고,
   시각은 `timestamptz`
 - 모듈은 `TypeOrmModule.forFeature([Entity])`로 등록한다. `autoLoadEntities: true`라
   엔티티 목록을 따로 관리하지 않는다
 - **`synchronize: true`다.** 엔티티를 고치면 운영 DB 스키마가 기동할 때 자동으로
-  바뀐다. 컬럼 이름을 바꾸거나 지우면 데이터가 날아갈 수 있으므로, 05번 작업에서
-  엔티티를 고칠 때 특히 조심한다
+  바뀐다. 05번부터 사용자 데이터가 쌓이므로 **컬럼 이름 변경·삭제 금지**. 운영 전에
+  마이그레이션으로 전환해야 한다 (07 B-4)
 - 입력 검증은 class-validator 없이 컨트롤러에서 직접 하고 `BadRequestException`을
   던진다 (`welcome.controller.ts`)
 
@@ -186,6 +188,21 @@
 - 기존 Redis 프로바이더에 종료 훅이 없어서 `app.close()`가 끝나지 않는다. 스크립트에서
   앱 컨텍스트를 쓸 때 주의
 
+## 사용자 콘텐츠 (src/engagement)
+
+- 인증이 없다. 앱이 만든 난수 UUID를 `X-Device-Id` 헤더로 받아 **중복만 막는다**
+  (`device-id.decorator.ts`, 영문·숫자·하이픈 8~64자). 조회는 헤더 없이도 되고, 쓰기는
+  헤더가 없으면 400
+- 예측은 시작 전까지 덮어쓰기(`upsert`)가 가능하다. MVP는 종료 후(`computeStatus`) 1회만
+  가능하고, 재투표는 unique 제약 위반 → 409
+- MVP 후보는 01번 선수기록의 득점+어시스트 상위 5명이다. 경기 기록에는 `player_seq`가
+  없어서 `PlayerService.lookupPlayerSeq`(로스터의 이름·배번)로 찾는다. 못 찾으면 `null`이고
+  이름으로 투표한다
+- 쓰기 엔드포인트에만 `ThrottlerGuard`(IP 기준 분당 30회)를 건다. 조회에는 걸지 않는다.
+  프록시 뒤에서는 `trust proxy` 설정이 필요하다 (07 B-2)
+- 응원글 작성자는 익명이다. 서버가 이름을 만들지 않는다. 차단은 지금 `cheers.hidden`을
+  수동으로 켜는 것뿐이다 (07 B-1)
+
 ## 작업 로드맵
 
 `docs/api-tasks/`의 문서를 번호순으로 진행한다. 각 문서가 그 자체로 작업 지시서다.
@@ -199,6 +216,7 @@
 | 04 | 폴링 워커 | 경기 중 스코어 폴링과 경기 상태 판정, `GET /api/game/:matchSeq/live` | 01 |
 | 05 | 사용자 콘텐츠 | 승부 예측·MVP 투표(`/api/game/:matchSeq/{prediction,mvp}`), 응원글(`/api/team/:teamNum/cheer`) | 00 |
 | 06 | 푸시·위젯 | `POST/DELETE /api/push/register`, `GET /api/widget/my-team` | 04 |
+| 07 | 후속 작업 | 개막 후 확인, 서비스 전 필수 작업, 앱에 알릴 스펙 차이 — **새로 알게 된 후속 과제는 여기에 쌓는다** | — |
 
 - 01·02·03은 서로 독립이다
 - **04와 06은 "경기 중에 PBP가 실시간으로 갱신된다"는 미검증 가정 위에 있다.**

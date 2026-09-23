@@ -11,6 +11,7 @@ import { WelcomeModule } from './welcome/welcome.module';
 import { GameModule } from './game/game.module';
 import { PlayerModule } from './player/player.module';
 import { LiveModule } from './live/live.module';
+import { EngagementModule } from './engagement/engagement.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { LiveModule } from './live/live.module';
     GameModule,
     PlayerModule,
     LiveModule,
+    EngagementModule,
   ],
   controllers: [AppController],
   providers: [AppService],

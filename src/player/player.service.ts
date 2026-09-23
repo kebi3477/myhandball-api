@@ -123,6 +123,25 @@ export class PlayerService {
     }, (r) => !Object.keys(r).length);
   }
 
+  /**
+   * 현재 로스터에서 선수의 player_seq를 찾는다 (경기 기록 페이지에는 player_seq가 없다).
+   * 이름이 같은 선수가 여럿이면 배번으로 가린다. 못 찾으면 null
+   */
+  async lookupPlayerSeq(
+    gender: Gender,
+    teamNum: number | null,
+    name: string,
+    number: number | null,
+  ): Promise<number | null> {
+    const roster = await this.roster(gender);
+    const hits = Object.values(roster).filter(
+      (r) => r.name === name && (teamNum === null || r.teamNum === teamNum),
+    );
+    if (hits.length === 1) return hits[0].playerSeq;
+    const byNumber = hits.filter((r) => number !== null && r.number === number);
+    return byNumber.length === 1 ? byNumber[0].playerSeq : null;
+  }
+
   // ---------- 목록 ----------
 
   async fetchList(gender: Gender, season: string, type: string): Promise<PlayerListResponse> {
