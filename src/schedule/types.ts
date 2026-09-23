@@ -19,6 +19,9 @@ export interface GameItem {
   containerId: string | null; // ul id (예: m1768057200). 숫자는 경기일 00:00 KST epoch
   matchSeq: number | null;    // detail.php?match_seq= 값
   startsAt: string | null;    // 경기 시작 ISO 8601 (예: "2025-11-15T15:20:00+09:00")
+  status: "pre" | "live" | "finished" | null; // 서버 판정 (live/match-status.ts)
+  scoreHome: number | null;   // 경기 중이면 폴링한 최신 점수
+  scoreAway: number | null;
 }
 
 export interface DayBlock {

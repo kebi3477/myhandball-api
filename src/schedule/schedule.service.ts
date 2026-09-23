@@ -1,11 +1,16 @@
 import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { In, Repository } from "typeorm";
 import axios from "axios";
 import * as cheerio from "cheerio";
 import type { CheerioAPI, Cheerio as CheerioType } from "cheerio";
 import dayjs from "dayjs";
 import "dayjs/locale/ko";
 import { DayBlock, GameItem, ScheduleResponse, TeamInfo, LiveLink } from "./types";
-import { kstIso, matchSeqFromHref } from "../common/scrape";
+import { intOrNull, kstIso, matchSeqFromHref } from "../common/scrape";
+import { CacheService } from "../cache/cache.service";
+import { MatchState } from "../live/match-state.entity";
+import { computeStatus } from "../live/match-status";
 
 dayjs.locale("ko");
 
@@ -101,11 +106,34 @@ function parseGame(
   const matchSeq = matchSeqFromHref($li.find('a[href*="match_seq="]').first().attr("href"));
   const startsAt = kstIso(dateISO, time);
 
-  return { home, away, scoreText, time, broadcast, liveLinks, venue, containerId, matchSeq, startsAt };
+  // "20 : 23" → 20, 23. 경기 전 "- : -"는 null
+  const [scoreHome, scoreAway] = $score
+    .find(".score span")
+    .map((_, el) => intOrNull($(el).text()))
+    .get() as (number | null)[];
+
+  return {
+    home, away, scoreText, time, broadcast, liveLinks, venue, containerId, matchSeq, startsAt,
+    status: null,
+    scoreHome: scoreHome ?? null,
+    scoreAway: scoreAway ?? null,
+  };
+}
+
+const TODAY_TTL_SEC = 60;
+const DEFAULT_TTL_SEC = 60 * 10;
+
+function kstToday(): string {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 @Injectable()
 export class ScheduleService {
+  constructor(
+    private readonly cache: CacheService,
+    @InjectRepository(MatchState) private readonly states: Repository<MatchState>,
+  ) {}
+
   private buildUrl(league_gender: string, league_season: string, league_type: string, league_month: string) {
     const u = new URL(`${BASE}/game/schedule_list.php`);
     if (league_gender) {
@@ -123,11 +151,44 @@ export class ScheduleService {
     return u.toString();
   }
 
+  /** 원본 캐시(오늘 경기가 있으면 60초, 아니면 10분) 위에 경기 상태를 매 요청 새로 붙인다 */
   async fetchSchedule(
     league_gender: "W" | "M" | "" = "W",
     league_season = "2025",
     league_type = "1",
     league_month = "",
+  ): Promise<ScheduleResponse> {
+    const key = `schedule:${league_gender}:${league_season}:${league_type}:${league_month}`;
+    let res = await this.cache.getJSON<ScheduleResponse>(key);
+    if (!res) {
+      res = await this.crawlSchedule(league_gender, league_season, league_type, league_month);
+      const hasToday = res.days.some((d) => d.dateISO === kstToday());
+      await this.cache.setJSON(key, res, hasToday ? TODAY_TTL_SEC : DEFAULT_TTL_SEC);
+    }
+    await this.applyStatus(res);
+    return res;
+  }
+
+  private async applyStatus(res: ScheduleResponse) {
+    const games = res.days.flatMap((d) => d.games);
+    const seqs = games.map((g) => g.matchSeq).filter((s): s is number => s !== null);
+    const states = seqs.length ? await this.states.find({ where: { matchSeq: In(seqs) } }) : [];
+    const bySeq = new Map(states.map((s) => [s.matchSeq, s]));
+    for (const g of games) {
+      const state = g.matchSeq !== null ? bySeq.get(g.matchSeq) : undefined;
+      g.status = computeStatus({ startsAt: g.startsAt, hasFinalScore: g.scoreHome !== null, state });
+      if (state && g.status === "live" && state.scoreHome !== null) {
+        g.scoreHome = state.scoreHome;
+        g.scoreAway = state.scoreAway;
+      }
+    }
+  }
+
+  private async crawlSchedule(
+    league_gender: "W" | "M" | "",
+    league_season: string,
+    league_type: string,
+    league_month: string,
   ): Promise<ScheduleResponse> {
     const url = this.buildUrl(league_gender, league_season, league_type, league_month);
 

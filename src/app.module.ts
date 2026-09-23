@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule as CronModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -9,6 +10,7 @@ import { RankingModule } from './ranking/ranking.module';
 import { WelcomeModule } from './welcome/welcome.module';
 import { GameModule } from './game/game.module';
 import { PlayerModule } from './player/player.module';
+import { LiveModule } from './live/live.module';
 
 @Module({
   imports: [
@@ -26,12 +28,14 @@ import { PlayerModule } from './player/player.module';
         synchronize: true,
       }),
     }),
+    CronModule.forRoot(),
     ScheduleModule,
     TeamModule,
     RankingModule,
     WelcomeModule,
     GameModule,
     PlayerModule,
+    LiveModule,
   ],
   controllers: [AppController],
   providers: [AppService],
