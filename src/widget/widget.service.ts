@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { currentSeason } from "../common/season";
 import { LiveEvent } from "../live/live-event.entity";
+import { computeStatus } from "../live/match-status";
 import { ScheduleService } from "../schedule/schedule.service";
 import { TeamService } from "../team/team.service";
 import type { Gender } from "../team/types";
@@ -23,11 +24,14 @@ export class WidgetService {
     @InjectRepository(LiveEvent) private readonly events: Repository<LiveEvent>,
   ) {}
 
-  async myTeam(teamNum: number, gender: Gender): Promise<WidgetResponse> {
+  /** `now`를 주면(개발용 시각 이동) 경기 상태를 그 시각 기준으로 다시 계산한다. 폴링 기록은 쓰지 않는다 */
+  async myTeam(teamNum: number, gender: Gender, now?: number): Promise<WidgetResponse> {
+    const timeTravel = now !== undefined;
+    now ??= Date.now();
     const team = (await this.teamService.fetchTeams(gender)).teams.find((t) => t.teamNum === teamNum);
     if (!team) throw new NotFoundException(`팀을 찾을 수 없습니다: ${teamNum}`);
     const name = norm(team.name);
-    const season = currentSeason();
+    const season = currentSeason(now);
 
     // 정규리그 + 포스트시즌
     const schedules = await Promise.all(
@@ -42,6 +46,12 @@ export class WidgetService {
       )
       .sort((a, b) => (a.game.startsAt ?? "").localeCompare(b.game.startsAt ?? ""));
 
+    if (timeTravel) {
+      for (const { game } of games) {
+        game.status = computeStatus({ startsAt: game.startsAt, hasFinalScore: game.scoreHome !== null, now });
+      }
+    }
+
     // 진행 중인 경기만 최신 경과 분을 붙인다 (인덱스: live_events.match_seq)
     for (const g of games) {
       if (g.game.status !== "live" || g.game.matchSeq === null) continue;
@@ -52,6 +62,6 @@ export class WidgetService {
       g.minute = last?.minute ?? null;
     }
 
-    return buildWidget(games, Date.now());
+    return buildWidget(games, now);
   }
 }
