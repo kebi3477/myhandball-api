@@ -7,5 +7,6 @@ import { CacheModule } from "src/cache/cache.module";
   imports: [CacheModule],
   controllers: [TeamController],
   providers: [TeamService],
+  exports: [TeamService],
 })
 export class TeamModule {}

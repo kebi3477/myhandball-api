@@ -8,6 +8,7 @@ import { TeamModule } from './team/team.module';
 import { RankingModule } from './ranking/ranking.module';
 import { WelcomeModule } from './welcome/welcome.module';
 import { GameModule } from './game/game.module';
+import { PlayerModule } from './player/player.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { GameModule } from './game/game.module';
     RankingModule,
     WelcomeModule,
     GameModule,
+    PlayerModule,
   ],
   controllers: [AppController],
   providers: [AppService],
