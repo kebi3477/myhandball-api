@@ -1,5 +1,5 @@
 {
-  "name": "@koha/api",
+  "name": "myhandball-api",
   "version": "1.0.1",
   "private": true,
   "scripts": {
@@ -24,7 +24,6 @@
     "typeorm": "^0.3.28"
   },
   "devDependencies": {
-    "@koha/config": "workspace:*",
     "@nestjs/cli": "^10.4.9",
     "@nestjs/schematics": "^10.1.4",
     "@types/express": "^5.0.0",

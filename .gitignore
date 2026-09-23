@@ -3,7 +3,6 @@ node_modules/
 
 # build output
 dist/
-.turbo/
 
 # env
 .env
@@ -13,7 +12,7 @@ dist/
 # logs
 *.log
 npm-debug.log*
-pnpm-debug.log*
+
 
 # OS / IDE
 .DS_Store

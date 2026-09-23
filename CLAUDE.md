@@ -129,24 +129,24 @@
 ## 실행·검증
 
 ```bash
-pnpm --filter @koha/api dev     # 또는 이 저장소 루트에서 pnpm dev
+npm run dev      # nest start --watch
+npm run build && npm run lint
 curl -s 'http://localhost:3000/api/schedule?gender=M&season=2025&type=1' | jq
 ```
 
-`.env`: `BASE`, `PORT`, `REDIS_URL`, `DATABASE_URL`, `DATABASE_SSL`. CORS는 `CORS_ORIGINS`
-(쉼표 구분)로 지정하고, 없으면 `localhost:5173` 계열만 허용한다. `.env.example`에는
-`CORS_ORIGINS`가 없다. 네이티브 앱은 CORS의 영향을 받지 않는다.
+패키지 매니저는 **npm**이다 (`package-lock.json`). pnpm·turbo 모노레포(`@koha`)에서
+분리된 저장소라, 옛 흔적(`pnpm --filter`, `@koha/config`, `apps/api/` 경로)은 다시
+들이지 않는다. 테스트 러너는 아직 없으므로 검증은 빌드, lint, 실제 기동 후 curl로 한다.
 
-⚠️ **현재 이 저장소 단독으로는 빌드·실행이 안 된다.** 이 코드는 `@koha` pnpm·turbo
-모노레포의 `apps/api`에서 분리됐고, 아래가 모두 옛 모노레포를 전제한다.
+- `tsconfig.json`은 `strictNullChecks: false`, `noImplicitAny: false`로 느슨하다.
+  `esModuleInterop: true`가 빠지면 `import dayjs from "dayjs"`가 런타임에 깨진다
+- `src/cache/...` 같은 `src/` 절대 경로 import가 일부 있다 (`baseUrl: "./"`).
+  새 코드는 상대 경로를 쓴다
 
-- `node_modules/`가 pnpm 심링크라 옛 경로를 가리키고 깨져 있다 (`typescript` 등)
-- `package.json`의 `"@koha/config": "workspace:*"`, 그리고 `tsconfig.json` /
-  `.eslintrc.cjs`의 `@koha/config/...` extends
-- `Dockerfile`이 `pnpm-workspace.yaml`, `turbo.json`, `apps/api/...` 경로를 복사한다
-
-검증 전에 이걸 먼저 해결해야 한다 (`@koha/config` 의존을 걷어내고 설정을 인라인하거나,
-모노레포 안에서 실행). 해결하면 이 절을 갱신할 것.
+`.env`: `BASE`, `PORT`, `REDIS_URL`, `DATABASE_URL`, `DATABASE_SSL`. 기동하려면 Redis와
+Postgres가 모두 연결돼야 한다. CORS는 `CORS_ORIGINS`(쉼표 구분)로 지정하고, 없으면
+`localhost:5173` 계열만 허용한다. `.env.example`에는 `CORS_ORIGINS`가 없다. 네이티브
+앱은 CORS의 영향을 받지 않는다.
 
 ## 서버 운영 상태 (주의)
 
