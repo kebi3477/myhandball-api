@@ -81,6 +81,29 @@ https://myhandball.lab241.com/api/schedule?gender=M&season=2025&type=1
 docker compose exec api node -e "fetch('http://localhost:3000/api/health').then(r=>r.text()).then(console.log)"
 ```
 
+### 6. 푸시(FCM) 키 넣기 — 선택
+
+비워 두면 푸시는 드라이런(로그만)입니다. Firebase 서비스 계정 키(JSON)가 있으면:
+
+```bash
+# 작업 PC에서 → 서버로 키 파일 복사 (저장소 안에 두지만 git·도커 빌드에서는 제외돼 있음)
+scp myhandball-226dc-firebase-adminsdk-*.json <서버>:~/myhandball-api/deploy/
+
+# 서버에서
+cd ~/myhandball-api/deploy
+sudo apt install -y jq                         # 없으면
+sed -i '/^FCM_/d' .env                         # 비어 있던 FCM_ 줄 삭제
+jq -r '"FCM_PROJECT_ID=\(.project_id)\nFCM_CLIENT_EMAIL=\(.client_email)\nFCM_PRIVATE_KEY=\(.private_key|tojson)"' \
+  myhandball-226dc-firebase-adminsdk-*.json >> .env
+rm myhandball-226dc-firebase-adminsdk-*.json  # 값은 .env에 들어갔으니 키 파일은 지운다
+docker compose up -d api                      # 새 환경변수로 api만 다시 만든다
+docker compose logs api | grep -i fcm          # "드라이런 모드"가 안 나오면 성공
+```
+
+- 개인 키의 줄바꿈은 `FCM_PRIVATE_KEY="...\n..."` 형태로 들어가고, 도커와 앱 코드가 제대로 읽는 것을
+  확인했습니다. 손으로 옮기면 줄바꿈이 깨지기 쉬우니 위 명령을 쓰세요
+- iPhone에 실제로 도착하려면 Firebase 콘솔에 **APNs 인증 키(.p8)** 도 등록해야 합니다 (Apple Developer 계정 필요)
+
 ## 운영
 
 | 할 일 | 명령 |

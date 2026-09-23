@@ -18,3 +18,7 @@ npm-debug.log*
 .DS_Store
 .idea/
 .vscode/
+
+# Firebase 서비스 계정 키 (비밀). 값은 deploy/.env의 FCM_* 로 넣는다
+*firebase-adminsdk*.json
+*service-account*.json
