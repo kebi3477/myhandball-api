@@ -15,6 +15,7 @@ import { LiveModule } from './live/live.module';
 import { EngagementModule } from './engagement/engagement.module';
 import { PushModule } from './push/push.module';
 import { WidgetModule } from './widget/widget.module';
+import { PolicyModule } from './policy/policy.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { WidgetModule } from './widget/widget.module';
     EngagementModule,
     PushModule,
     WidgetModule,
+    PolicyModule,
   ],
   controllers: [AppController],
   providers: [AppService],

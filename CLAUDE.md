@@ -209,6 +209,14 @@
 - 응원글 작성자는 익명이다. 서버가 이름을 만들지 않는다. 차단은 지금 `cheers.hidden`을
   수동으로 켜는 것뿐이다 (07 B-1)
 
+## 개인정보 처리방침 (src/policy)
+
+- `GET /api/policy/privacy`(앱용 JSON)와 `GET /api/policy/privacy/page`(스토어 제출용 웹페이지)가
+  같은 원본 `privacy-policy.ts`를 쓴다. v1 웹 처리방침의 형식·연락처를 이어받았다
+- **DB에 저장하는 항목, 보관 기간, 외부 전송(FCM 등)을 바꾸면 이 문서도 같이 고치고
+  `version`·`effectiveDate`를 올린다.** 지금 기준: 기기 ID, 예측·투표·응원글·좋아요, 푸시 토큰,
+  첫 설정(성별·연령대·마이팀), IP는 쓰기 제한에만 1분 메모리 사용, 쿠키 없음, 국외 이전은 Google(FCM)·Apple(APNs)
+
 ## 푸시·위젯 (src/push, src/widget)
 
 - 푸시는 폴러(`LivePollerService`)가 부른다. 시작 10분 전(폴링 시작 시 경기 전일 때만), 득점,
@@ -237,6 +245,7 @@
 | live | `GET /api/game/:matchSeq/live` + PBP 폴링 워커, 일정에 경기 상태 |
 | engagement | `GET/POST /api/game/:matchSeq/{prediction,mvp}`, `/api/team/:teamNum/cheer` (+ `DELETE`, `/like`) |
 | push·widget | `POST/DELETE /api/push/register`, `GET /api/widget/my-team` |
+| policy | `GET /api/policy/privacy` (JSON), `/api/policy/privacy/page` (웹페이지) |
 
 - **live와 push는 "경기 중에 PBP가 실시간으로 갱신된다"는 미검증 가정 위에 있다.**
   가정이 틀리면 LIVE와 득점 푸시가 저절로 나가지 않는다. 개막(11월) 후 첫 경기에서 먼저
