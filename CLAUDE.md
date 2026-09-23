@@ -1,0 +1,157 @@
+# myhandball-api
+
+한국 핸드볼 리그(H리그)의 일정·순위·기록 API. NestJS 10.
+
+- 데이터는 전부 `koreahandball.com` 스크래핑 (`.env`의 `BASE`). `robots.txt`는 전면 허용
+- 전역 prefix `/api` (`src/main.ts`), **인증 없음**
+- Redis 캐시(`CacheService`), Postgres(TypeORM)는 현재 `welcome` 모듈에서만 사용
+
+## 클라이언트와 하위 호환
+
+클라이언트가 둘이다.
+
+1. **기존 React 웹** (`../_legercy/myhandball/apps/web`) — 운영 중, 건드리지 않는다
+2. **새 Flutter 앱** (`../myhandball-app`) — 전 화면 구현 완료, 데이터만 목업.
+   `HandballApiService`의 HTTP 구현체만 추가하면 붙는다. 그래서 **응답 스펙을 앱
+   도메인 모델과 맞추는 것**이 이 저장소 작업의 핵심이다. `docs/api-tasks/`의 응답
+   스펙을 임의로 바꾸지 말 것
+
+웹이 쓰는 `/api/schedule`, `/api/ranking`, `/api/team`에 대해:
+
+- **필드 추가는 OK, 제거·이름 변경·타입 변경은 금지**
+- 쿼리 파라미터 기본값도 웹이 기대는 동작이므로 바꾸지 않는다 (아래 표 참고)
+- 새 엔드포인트는 자유롭게 추가 가능
+- 이 제약은 웹을 내릴 때까지 유지된다. 풀리면 작업 지시서에 명시된다
+
+## 스크래핑 규칙
+
+### 공통 파라미터 (원본 사이트)
+
+| 파라미터 | 값 | 의미 |
+|---|---|---|
+| `league_gender` | `M` / `W` | 남자부 / 여자부 |
+| `league_season` | `2025` | **시작 연도**. 2025 = 25-26 시즌 |
+| `league_type` | `1` / `2` | 정규리그 / 포스트시즌 |
+| `league_season_month` | `11` | 월 (일정에서만) |
+
+우리 API는 이를 `gender` / `season` / `type` / `month` 쿼리로 받는다.
+**기존 엔드포인트의 기본값이 서로 다르다**는 점에 주의:
+
+| 엔드포인트 | 원본 페이지 | gender 기본 | season 기본 | 잘못된 gender | 캐시 |
+|---|---|---|---|---|---|
+| `GET /api/schedule` | `/game/schedule_list.php` | `W` | `2025` | 빈 문자열이면 파라미터 생략, 그 외 그대로 전달 | 없음 |
+| `GET /api/schedule/ics/my-team` | 위 페이지를 1~12월 **순차 12회** 요청 | `W` | `2025` | — | 없음 |
+| `GET /api/ranking` | `/game/teamranking.php` | `W` | **`2024`** (갱신 안 됨) | `W`로 강제 | 없음 |
+| `GET /api/team` | `/introduce/team_{men,women}.php` | `W` | — | `W`로 강제 | `teams:{M\|W}`, **24시간** |
+
+새 엔드포인트는 `season` 기본값을 현재 시즌(2025)으로 둔다.
+
+### 기존 파싱 관례
+
+- HTTP는 서비스마다 같은 `axios.get` 옵션을 복붙해 쓴다: 브라우저 UA,
+  `Accept-Language: ko`, `timeout: 15000`, `responseType: "text"`, `maxRedirects: 3`,
+  `validateStatus: 2xx~3xx`
+- `absUrl()`(상대 경로 → `BASE` 기준 절대 URL)과 `textOrNull()`(trim 후 빈 문자열이면
+  `null`)이 **세 서비스에 각각 복사돼 있다**. 새 모듈에서 공용 유틸로 뽑는 건 괜찮지만,
+  기존 3개 서비스는 동작을 건드리지 않는다
+- 이미지·링크 URL은 반드시 `absUrl`로 절대 URL로 만들어 내보낸다
+- 순위표는 원본이 좌(순위·팀) / 우(기록) 두 테이블로 나뉘어 있어 **행 인덱스로
+  병합**한다. 행 수가 어긋나면 짧은 쪽에 맞춰 잘린다
+- 일정의 `GameItem.containerId`는 `ul.list`의 id(`m1768057200` 형태)이고, 숫자
+  부분이 경기 시작 epoch(초)다. `detail.php?match_seq=` 링크는 아직 파싱하지 않는다
+  (01번 작업에서 추가)
+- 공용 타입 `Gender`(`"W" | "M"`)는 `src/team/types.ts`에 있고, 다른 모듈이 여기서
+  import한다
+
+### 원칙 (새 코드에 적용)
+
+- **파싱 실패는 500이 아니라 빈 값 + 로그.** 한 항목이 깨져도 나머지는 나가야 한다.
+  클라이언트는 빈 상태 화면을 갖고 있다
+  - 주의: 기존 3개 서비스는 이 원칙을 지키지 않는다. 요청 실패나 파싱 오류가 그대로
+    500으로 전파된다. 기존 동작은 두고, 새 코드부터 지킨다
+- 파싱 결과가 0건이면 `Logger.warn`을 남긴다. 원본 HTML 개편을 빨리 알아채기 위함
+- 셀렉터는 `docs/api-tasks/`의 각 문서에 실측값이 있다. 추측하지 말고 그걸 따르거나
+  실제 페이지를 받아 확인한다
+
+### 캐시
+
+- `CacheService`는 `getJSON` / `setJSON(key, value, ttlSec?)` / `del`만 있는 얇은
+  래퍼다. `ttlSec`를 빼면 **만료 없이** 저장되니 반드시 넘긴다
+- `CacheModule`은 `@Global`이지만 `AppModule`에 등록돼 있지 않고 `TeamModule`이
+  import해서 올라온다. 새 모듈에서 쓸 때는 해당 모듈에서 `CacheModule`을 import한다
+- 키 형태는 `teams:M`처럼 `{도메인}:{파라미터}`
+- **경기 중 데이터는 캐시하지 않는다** (04번 문서 참고). 권장 TTL은 각 작업 문서에 있다
+
+## 응답 스펙 원칙
+
+- 응답 타입은 각 모듈의 `types.ts`에 둔다
+- 숫자로 쓸 값은 숫자로 준다. 기존 `GameItem.scoreText`(`"20 : 23"`, 경기 전
+  `"- : -"`)처럼 문자열로 주는 실수를 반복하지 않는다. 새 필드는
+  `scoreHome: number | null` 형태로 만든다. 기존 필드는 하위 호환 때문에 그대로 둔다
+- 날짜는 ISO 8601 문자열로 준다. 원본 라벨이 필요하면 `~Label` 필드를 따로 둔다
+  (기존 `dateLabel` / `dateISO` 쌍과 같은 방식)
+- 비어 있으면 `null` 또는 `[]`를 준다. `undefined`는 내보내지 않는다(JSON에서 키가
+  사라진다). `tsconfig`가 `strictNullChecks: false`라 컴파일러가 잡아주지 않으니
+  직접 챙긴다
+- 기존 응답은 최상위에 원본 `url`과 요청 파라미터(`leagueGender` 등)를 함께
+  돌려준다. 새 엔드포인트도 같은 형태를 따른다
+
+## DB (TypeORM / Postgres)
+
+- 유일한 엔티티는 `WelcomeSubmission`이고 테이블은 `welcome_submissions`다. 컬럼은
+  `@Column({ name: 'snake_case' })`로 매핑하고, `created_at`은 `timestamptz`
+- 모듈은 `TypeOrmModule.forFeature([Entity])`로 등록한다. `autoLoadEntities: true`라
+  엔티티 목록을 따로 관리하지 않는다
+- **`synchronize: true`다.** 엔티티를 고치면 운영 DB 스키마가 기동할 때 자동으로
+  바뀐다. 컬럼 이름을 바꾸거나 지우면 데이터가 날아갈 수 있으므로, 05번 작업에서
+  엔티티를 고칠 때 특히 조심한다
+- 입력 검증은 class-validator 없이 컨트롤러에서 직접 하고 `BadRequestException`을
+  던진다 (`welcome.controller.ts`)
+
+## 작업 로드맵
+
+`docs/api-tasks/`의 문서를 번호순으로 진행한다. 각 문서가 그 자체로 작업 지시서다.
+
+| # | 문서 | 만드는 것 | 선행 |
+|---|---|---|---|
+| 00 | 부트스트랩 | 이 `CLAUDE.md` | — |
+| 01 | 경기 상세 | `GET /api/game/:matchSeq` (전·후반, 팀 기록, 선수별 기록) | 00 |
+| 02 | 선수 도메인 | `GET /api/player`, `GET /api/player/:playerSeq`, `GET /api/player/ranking` | 00 |
+| 03 | 팀 상세 | `GET /api/team/:teamNum` (구단 소개, 코칭스태프, 팀 기록) | 00 |
+| 04 | 폴링 워커 | 경기 중 스코어 폴링과 경기 상태 판정, `GET /api/game/:matchSeq/live` | 01 |
+| 05 | 사용자 콘텐츠 | 승부 예측·MVP 투표(`/api/game/:matchSeq/{prediction,mvp}`), 응원글(`/api/team/:teamNum/cheer`) | 00 |
+| 06 | 푸시·위젯 | `POST/DELETE /api/push/register`, `GET /api/widget/my-team` | 04 |
+
+- 01·02·03은 서로 독립이다
+- **04와 06은 "경기 중에 `detail.php` 점수가 실시간 갱신된다"는 미검증 가정 위에
+  있다.** 개막(11월) 후 실제 경기로 먼저 확인한다 (04 문서에 판별 방법이 있다)
+
+## 실행·검증
+
+```bash
+pnpm --filter @koha/api dev     # 또는 이 저장소 루트에서 pnpm dev
+curl -s 'http://localhost:3000/api/schedule?gender=M&season=2025&type=1' | jq
+```
+
+`.env`: `BASE`, `PORT`, `REDIS_URL`, `DATABASE_URL`, `DATABASE_SSL`. CORS는 `CORS_ORIGINS`
+(쉼표 구분)로 지정하고, 없으면 `localhost:5173` 계열만 허용한다. `.env.example`에는
+`CORS_ORIGINS`가 없다. 네이티브 앱은 CORS의 영향을 받지 않는다.
+
+⚠️ **현재 이 저장소 단독으로는 빌드·실행이 안 된다.** 이 코드는 `@koha` pnpm·turbo
+모노레포의 `apps/api`에서 분리됐고, 아래가 모두 옛 모노레포를 전제한다.
+
+- `node_modules/`가 pnpm 심링크라 옛 경로를 가리키고 깨져 있다 (`typescript` 등)
+- `package.json`의 `"@koha/config": "workspace:*"`, 그리고 `tsconfig.json` /
+  `.eslintrc.cjs`의 `@koha/config/...` extends
+- `Dockerfile`이 `pnpm-workspace.yaml`, `turbo.json`, `apps/api/...` 경로를 복사한다
+
+검증 전에 이걸 먼저 해결해야 한다 (`@koha/config` 의존을 걷어내고 설정을 인라인하거나,
+모노레포 안에서 실행). 해결하면 이 절을 갱신할 것.
+
+## 서버 운영 상태 (주의)
+
+`myhandball.kro.kr`는 가정 회선에서 자체 호스팅한다. 2026-09-23 기준으로 외부에서
+443 포트가 응답하지 않았고, 인증서(ZeroSSL)는 수동으로 갱신하고 있다.
+
+**앱은 웹과 달리 인증서가 만료되면 완전히 먹통이 된다** (iOS ATS / Android cleartext
+차단). 배포 관련 작업을 하게 되면 이 점부터 먼저 짚는다.
