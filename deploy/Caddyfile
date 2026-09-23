@@ -6,7 +6,6 @@
 #   공유기에서 443(가능하면 80도)을 이 서버로 포워딩해야 발급된다. 80이 막혀도 443만으로 발급된다
 #
 # 도커(deploy/docker-compose.yml)에서 쓴다. 값은 deploy/.env에서 온다
-
 {
 	email {$ACME_EMAIL}
 }
@@ -16,6 +15,18 @@
 
 	# API만 NestJS로 넘긴다. 앱은 https://myhandball.lab241.com/api/... 로 부른다
 	handle /api/* {
+		reverse_proxy {$API_UPSTREAM:api:3000}
+	}
+
+	# 앱 설정 화면이 여는 정책 페이지 (앱의 AppConfig.privacyUrl / termsUrl)
+	@privacy path /privacy /privacy/
+	handle @privacy {
+		rewrite * /api/policy/privacy/page
+		reverse_proxy {$API_UPSTREAM:api:3000}
+	}
+	@terms path /terms /terms/
+	handle @terms {
+		rewrite * /api/policy/terms/page
 		reverse_proxy {$API_UPSTREAM:api:3000}
 	}
 

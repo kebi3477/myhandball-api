@@ -209,10 +209,14 @@
 - 응원글 작성자는 익명이다. 서버가 이름을 만들지 않는다. 차단은 지금 `cheers.hidden`을
   수동으로 켜는 것뿐이다 (07 B-1)
 
-## 개인정보 처리방침 (src/policy)
+## 정책 문서 (src/policy)
 
-- `GET /api/policy/privacy`(앱용 JSON)와 `GET /api/policy/privacy/page`(스토어 제출용 웹페이지)가
-  같은 원본 `privacy-policy.ts`를 쓴다. v1 웹 처리방침의 형식·연락처를 이어받았다
+- 개인정보 처리방침(`privacy-policy.ts`)과 서비스 이용약관(`terms.ts`). 각각 JSON(`/api/policy/{privacy,terms}`)과
+  웹페이지(`/api/policy/{privacy,terms}/page`)로 나간다. 처리방침은 v1 웹의 형식·연락처를 이어받았고,
+  이용약관은 v1에 없어서 새로 썼다 (응원글 금지 내용·제재, 예측·투표는 금전 없음, 연맹 비공식·면책)
+- **앱은 설정 화면에서 `https://myhandball.lab241.com/privacy`, `/terms`를 외부 브라우저로 연다**
+  (앱 `AppConfig.privacyUrl`/`termsUrl`). 이 짧은 주소는 Caddy가 `/page` 경로로 이어 준다. 문구는
+  앱 심사 없이 여기서 고친다
 - **DB에 저장하는 항목, 보관 기간, 외부 전송(FCM 등)을 바꾸면 이 문서도 같이 고치고
   `version`·`effectiveDate`를 올린다.** 지금 기준: 기기 ID, 예측·투표·응원글·좋아요, 푸시 토큰,
   첫 설정(성별·연령대·마이팀), IP는 쓰기 제한에만 1분 메모리 사용, 쿠키 없음, 국외 이전은 Google(FCM)·Apple(APNs)
@@ -245,7 +249,7 @@
 | live | `GET /api/game/:matchSeq/live` + PBP 폴링 워커, 일정에 경기 상태 |
 | engagement | `GET/POST /api/game/:matchSeq/{prediction,mvp}`, `/api/team/:teamNum/cheer` (+ `DELETE`, `/like`) |
 | push·widget | `POST/DELETE /api/push/register`, `GET /api/widget/my-team` |
-| policy | `GET /api/policy/privacy` (JSON), `/api/policy/privacy/page` (웹페이지) |
+| policy | `GET /api/policy/{privacy,terms}` (JSON), `/api/policy/{privacy,terms}/page` (웹페이지), 짧은 주소 `/privacy`, `/terms` (Caddy) |
 
 - **live와 push는 "경기 중에 PBP가 실시간으로 갱신된다"는 미검증 가정 위에 있다.**
   가정이 틀리면 LIVE와 득점 푸시가 저절로 나가지 않는다. 개막(11월) 후 첫 경기에서 먼저
