@@ -1,29 +1,26 @@
 # myhandball.kro.kr 앞단 프록시 (HTTPS 자동 발급·갱신)
 #
-# Caddy가 Let's Encrypt(실패 시 ZeroSSL) 인증서를 알아서 받고 만료 전에 갱신한다.
-# 공유기에서 443(가능하면 80도)을 이 Mac으로 포워딩해야 발급된다.
-# 80이 막혀 있어도 443만으로 발급된다 (TLS-ALPN 방식).
+# Caddy가 인증서를 알아서 받고 만료 전에 갱신한다. 무료.
+# - Let's Encrypt는 kro.kr 공용 한도(주당 50개, 모든 kro.kr 사용자가 나눠 씀)에 자주 걸린다.
+#   email이 있으면 실패할 때 ZeroSSL로 자동 전환한다
+# - 공유기에서 443(가능하면 80도)을 이 서버로 포워딩해야 발급된다. 80이 막혀도 443만으로 발급된다
 #
-# 적용: /opt/homebrew/etc/Caddyfile 이 이 파일을 import 하고, `brew services start caddy`로 띄운다.
-# 설정을 바꾼 뒤: `caddy validate --config deploy/Caddyfile` → `brew services restart caddy`
+# 도커(deploy/docker-compose.yml)에서 쓴다. 값은 deploy/.env에서 온다
 
-myhandball.kro.kr {
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN:myhandball.kro.kr} {
 	encode zstd gzip
 
-	# API만 NestJS(localhost:3000)로 넘긴다. 앱은 https://myhandball.kro.kr/api/... 로 부른다
+	# API만 NestJS로 넘긴다. 앱은 https://myhandball.kro.kr/api/... 로 부른다
 	handle /api/* {
-		reverse_proxy localhost:3000
+		reverse_proxy {$API_UPSTREAM:api:3000}
 	}
 
 	# 나머지 경로는 아직 쓰는 곳이 없다 (v1 웹을 여기 다시 올리면 이 자리에 추가)
 	handle {
 		respond "myhandball api" 404
-	}
-
-	log {
-		output file /opt/homebrew/var/log/caddy/myhandball.log {
-			roll_size 10MiB
-			roll_keep 5
-		}
 	}
 }

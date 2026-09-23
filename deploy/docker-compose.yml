@@ -1,0 +1,91 @@
+# 미니 PC 배포: API + Postgres + Redis + Caddy(HTTPS)
+#
+#   cd deploy
+#   cp .env.example .env   # 값 채우기
+#   docker compose up -d --build
+#
+# 자세한 순서는 deploy/README.md
+
+name: myhandball
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      BASE: https://www.koreahandball.com
+      DATABASE_URL: postgres://myhandball:${POSTGRES_PASSWORD:?deploy/.env에 POSTGRES_PASSWORD 필요}@postgres:5432/myhandball
+      DATABASE_SSL: "false"
+      REDIS_URL: redis://redis:6379/0
+      # Caddy가 다른 컨테이너(사설망)라서 그 IP를 믿어야 실제 클라이언트 IP가 보인다
+      TRUST_PROXY: uniquelocal
+      CURRENT_SEASON: ${CURRENT_SEASON:-}
+      LIVE_POLLING: ${LIVE_POLLING:-true}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+      FCM_CLIENT_EMAIL: ${FCM_CLIENT_EMAIL:-}
+      FCM_PRIVATE_KEY: ${FCM_PRIVATE_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # 외부에 직접 열지 않는다. Caddy를 거쳐서만 들어온다
+    expose:
+      - "3000"
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: myhandball
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?deploy/.env에 POSTGRES_PASSWORD 필요}
+      POSTGRES_DB: myhandball
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myhandball -d myhandball"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?deploy/.env에 ACME_EMAIL 필요}
+      DOMAIN: ${DOMAIN:-myhandball.kro.kr}
+      API_UPSTREAM: api:3000
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # 인증서·ACME 계정이 여기 저장된다. 지우면 재발급 (발급 한도에 걸릴 수 있음)
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+  caddy_config:

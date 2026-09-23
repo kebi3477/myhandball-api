@@ -266,11 +266,12 @@ Postgres가 모두 연결돼야 한다. CORS는 `CORS_ORIGINS`(쉼표 구분)로
 
 ## 서버 운영 상태 (주의)
 
-`myhandball.kro.kr`는 가정 회선에서 자체 호스팅한다 (공인 IP = 이 Mac이 있는 공유기).
-HTTPS는 **Caddy**가 인증서를 자동으로 발급·갱신하도록 옮기는 중이다. 설정은 `deploy/Caddyfile`이고,
-`/opt/homebrew/etc/Caddyfile`이 이걸 import하며, `brew services start caddy`로 실행한다. `/api/*`만
-`localhost:3000`으로 넘긴다. API는 `trust proxy: loopback`으로 실제 클라이언트 IP를 받는다.
-공유기 포트포워딩과 `kro.kr` 공용 발급 한도 문제가 남아 있다 (07 B-3).
+`myhandball.kro.kr`는 가정 회선에서 자체 호스팅한다. **집의 미니 PC에 도커로 올린다**
+(`deploy/docker-compose.yml`: api + postgres + redis + caddy, 순서는 `deploy/README.md`).
+HTTPS는 Caddy가 인증서를 자동으로 발급·갱신한다 (`deploy/Caddyfile`, `/api/*`만 api로 넘김).
+Let's Encrypt는 `kro.kr` 공용 한도에 자주 걸려서 `ACME_EMAIL`로 ZeroSSL로 자동 전환한다.
+API의 `trust proxy`는 `TRUST_PROXY` 환경변수로 정한다 (기본 `loopback`, 도커는 `uniquelocal`).
+공유기 포트포워딩(443·80 → 미니 PC)이 남아 있다 (07 B-3).
 
 **앱은 웹과 달리 인증서가 만료되면 완전히 먹통이 된다** (iOS ATS / Android cleartext
 차단). 배포 관련 작업을 하게 되면 이 점부터 먼저 짚는다.
