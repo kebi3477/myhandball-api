@@ -74,7 +74,7 @@ services:
       - "443:443/udp" # HTTP/3
     environment:
       ACME_EMAIL: ${ACME_EMAIL:?deploy/.env에 ACME_EMAIL 필요}
-      DOMAIN: ${DOMAIN:-myhandball.kro.kr}
+      DOMAIN: ${DOMAIN:-myhandball.lab241.com}
       API_UPSTREAM: api:3000
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro

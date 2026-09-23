@@ -266,10 +266,12 @@ Postgres가 모두 연결돼야 한다. CORS는 `CORS_ORIGINS`(쉼표 구분)로
 
 ## 서버 운영 상태 (주의)
 
-`myhandball.kro.kr`는 가정 회선에서 자체 호스팅한다. **집의 미니 PC에 도커로 올린다**
+API 도메인은 **`myhandball.lab241.com`** 이다 (회사 도메인 `lab241.com`의 하위 도메인, DNS는 가비아).
+예전 `myhandball.kro.kr`은 Let's Encrypt `kro.kr` 공용 발급 한도에 막혀 버렸다.
+가정 회선에서 자체 호스팅하며, **집의 미니 PC에 도커로 올린다**
 (`deploy/docker-compose.yml`: api + postgres + redis + caddy, 순서는 `deploy/README.md`).
 HTTPS는 Caddy가 인증서를 자동으로 발급·갱신한다 (`deploy/Caddyfile`, `/api/*`만 api로 넘김).
-Let's Encrypt는 `kro.kr` 공용 한도에 자주 걸려서 `ACME_EMAIL`로 ZeroSSL로 자동 전환한다.
+`lab241.com`에는 와일드카드(`*.lab241.com` → 회사 서버)가 있어서 `myhandball` 전용 A 레코드가 필요하다.
 API의 `trust proxy`는 `TRUST_PROXY` 환경변수로 정한다 (기본 `loopback`, 도커는 `uniquelocal`).
 공유기 포트포워딩(443·80 → 미니 PC)이 남아 있다 (07 B-3).
 
