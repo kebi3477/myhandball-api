@@ -4,7 +4,7 @@
 
 - 데이터는 전부 `koreahandball.com` 스크래핑 (`.env`의 `BASE`). `robots.txt`는 전면 허용
 - 전역 prefix `/api` (`src/main.ts`), **인증 없음**
-- Redis 캐시(`CacheService`), Postgres(TypeORM)는 현재 `welcome` 모듈에서만 사용
+- Redis 캐시(`CacheService`), Postgres(TypeORM)는 `welcome`(환영 설문)과 `live`(경기 중계·상태)에서 사용
 
 ## 클라이언트와 하위 호환
 
@@ -39,8 +39,8 @@
 
 | 엔드포인트 | 원본 페이지 | gender 기본 | season 기본 | 잘못된 gender | 캐시 |
 |---|---|---|---|---|---|
-| `GET /api/schedule` | `/game/schedule_list.php` | `W` | `2025` | 빈 문자열이면 파라미터 생략, 그 외 그대로 전달 | 없음 |
-| `GET /api/schedule/ics/my-team` | 위 페이지를 1~12월 **순차 12회** 요청 | `W` | `2025` | — | 없음 |
+| `GET /api/schedule` | `/game/schedule_list.php` | `W` | `2025` | 빈 문자열이면 파라미터 생략, 그 외 그대로 전달 | 오늘 경기 있으면 60초, 없으면 10분 (04번에서 추가) |
+| `GET /api/schedule/ics/my-team` | 위 페이지를 1~12월 **순차 12회** 요청 | `W` | `2025` | — | 일정 캐시를 탐 |
 | `GET /api/ranking` | `/game/teamranking.php` | `W` | **`2024`** (갱신 안 됨) | `W`로 강제 | 없음 |
 | `GET /api/team` | `/introduce/team_{men,women}.php` | `W` | — | `W`로 강제 | `teams:{M\|W}`, **24시간** |
 
@@ -118,27 +118,6 @@
   확인하지 못했다** (2026-09-23 기준 비시즌). 개막 후 첫 경기에서 `live_events`가 늘어나는지
   확인해야 한다. 폴러는 PBP가 끝까지 비어 있으면 `warn`을 남긴다
 
-## 실시간 폴링 (src/live)
-
-- `LivePollerService`: 매일 06:00 KST와 기동할 때 오늘 경기를 모은다. 시작 10분 전부터
-  경기별로 60초 간격으로 PBP를 받는다. **60초 밑으로 내리지 않는다.** 실패하면 지수
-  백오프하고, 5회 연속 실패하면 그 경기의 폴링을 중단한다. `경기종료`를 보거나, 변화 후
-  20분이 지나거나, 시작 +150분이면 멈춘다. `LIVE_POLLING=false`로 끌 수 있다
-- 경기 상태는 `live/match-status.ts`의 `computeStatus` 하나로 판정한다. 일정 API와 라이브
-  API가 같이 쓴다. 시작이 지났는데 변화를 한 번도 못 봤으면 `pre`를 유지한다 (폴링이 안
-  되는 상황에서 모든 경기가 LIVE로 보이는 걸 막기 위함)
-- `live_events`는 폴링할 때마다 PBP와 맞춘다. 행은 `half|clock|homeText|awayText` 키로
-  식별하고, 원본에서 정정돼 사라진 행은 지운다. `observed_at`은 처음 본 시각이고, 종료 후
-  한꺼번에 채운 행은 `null`이다
-- 폴링한 적 없는 끝난 경기는 `/api/game/:matchSeq/live`를 처음 요청할 때 PBP로 한 번
-  채운다. PBP가 비어 있던 경기는 6시간 동안 다시 부르지 않는다
-- 일정 API는 원본을 캐시하고(오늘 경기가 있으면 60초, 없으면 10분), `status`는 캐시와
-  별개로 매 요청 `match_states`를 보고 새로 붙인다
-- 기존 Redis 프로바이더에 종료 훅이 없어서 `app.close()`가 끝나지 않는다. 스크립트에서
-  앱 컨텍스트를 쓸 때 주의
-- 공용 타입 `Gender`(`"W" | "M"`)는 `src/team/types.ts`에 있고, 다른 모듈이 여기서
-  import한다
-
 ### 원칙 (새 코드에 적용)
 
 - **파싱 실패는 500이 아니라 빈 값 + 로그.** 한 항목이 깨져도 나머지는 나가야 한다.
@@ -177,8 +156,9 @@
 
 ## DB (TypeORM / Postgres)
 
-- 유일한 엔티티는 `WelcomeSubmission`이고 테이블은 `welcome_submissions`다. 컬럼은
-  `@Column({ name: 'snake_case' })`로 매핑하고, `created_at`은 `timestamptz`
+- 엔티티: `WelcomeSubmission`(`welcome_submissions`), `LiveEvent`(`live_events`),
+  `MatchState`(`match_states`). 컬럼은 `@Column({ name: 'snake_case' })`로 매핑하고,
+  시각은 `timestamptz`
 - 모듈은 `TypeOrmModule.forFeature([Entity])`로 등록한다. `autoLoadEntities: true`라
   엔티티 목록을 따로 관리하지 않는다
 - **`synchronize: true`다.** 엔티티를 고치면 운영 DB 스키마가 기동할 때 자동으로
@@ -186,6 +166,25 @@
   엔티티를 고칠 때 특히 조심한다
 - 입력 검증은 class-validator 없이 컨트롤러에서 직접 하고 `BadRequestException`을
   던진다 (`welcome.controller.ts`)
+
+## 실시간 폴링 (src/live)
+
+- `LivePollerService`: 매일 06:00 KST와 기동할 때 오늘 경기를 모은다. 시작 10분 전부터
+  경기별로 60초 간격으로 PBP를 받는다. **60초 밑으로 내리지 않는다.** 실패하면 지수
+  백오프하고, 5회 연속 실패하면 그 경기의 폴링을 중단한다. `경기종료`를 보거나, 변화 후
+  20분이 지나거나, 시작 +150분이면 멈춘다. `LIVE_POLLING=false`로 끌 수 있다
+- 경기 상태는 `live/match-status.ts`의 `computeStatus` 하나로 판정한다. 일정 API와 라이브
+  API가 같이 쓴다. 시작이 지났는데 변화를 한 번도 못 봤으면 `pre`를 유지한다 (폴링이 안
+  되는 상황에서 모든 경기가 LIVE로 보이는 걸 막기 위함)
+- `live_events`는 폴링할 때마다 PBP와 맞춘다. 행은 `half|clock|homeText|awayText` 키로
+  식별하고, 원본에서 정정돼 사라진 행은 지운다. `observed_at`은 처음 본 시각이고, 종료 후
+  한꺼번에 채운 행은 `null`이다
+- 폴링한 적 없는 끝난 경기는 `/api/game/:matchSeq/live`를 처음 요청할 때 PBP로 한 번
+  채운다. PBP가 비어 있던 경기는 6시간 동안 다시 부르지 않는다
+- 일정 API는 원본을 캐시하고(오늘 경기가 있으면 60초, 없으면 10분), `status`는 캐시와
+  별개로 매 요청 `match_states`를 보고 새로 붙인다
+- 기존 Redis 프로바이더에 종료 훅이 없어서 `app.close()`가 끝나지 않는다. 스크립트에서
+  앱 컨텍스트를 쓸 때 주의
 
 ## 작업 로드맵
 
@@ -202,8 +201,9 @@
 | 06 | 푸시·위젯 | `POST/DELETE /api/push/register`, `GET /api/widget/my-team` | 04 |
 
 - 01·02·03은 서로 독립이다
-- **04와 06은 "경기 중에 `detail.php` 점수가 실시간 갱신된다"는 미검증 가정 위에
-  있다.** 개막(11월) 후 실제 경기로 먼저 확인한다 (04 문서에 판별 방법이 있다)
+- **04와 06은 "경기 중에 PBP가 실시간으로 갱신된다"는 미검증 가정 위에 있다.**
+  04는 문서의 `detail.php` 점수 대신 PBP를 폴링하도록 구현했다. 개막(11월) 후 첫
+  경기에서 먼저 확인한다 (아래 "실시간 폴링" 참고)
 
 ## 실행·검증
 
