@@ -88,8 +88,13 @@
   (`team_{men,women}.php?team_num=N&page_type=3`)에서 `player_seq`로 붙인다. 현재
   로스터 기준이라 이적하거나 은퇴한 선수는 배번이 `null`이다
 - `/record/player.php`의 팀명은 축약형(`인천`, `SK`)이다. 같은 성별의 팀 목록에서 앞부분
-  일치로 유일하게 찾을 수 있다. 팀명은 `TeamService` 목록의 이름을 기준으로 한다
-  (`상무피닉스`는 공백 없음)
+  일치로 유일하게 찾을 수 있다
+- **팀 이름의 정본은 `TeamService` 목록(`/api/team`)의 이름이다** (`상무피닉스`, 공백 없음).
+  일정·순위 원본은 `상무 피닉스`로 공백이 있어서, `TeamService.canonicalNames()`(공백을 뺀
+  키로 매칭)로 목록 이름에 맞춘다. 못 찾으면 원본을 두고 warn한다. 새 엔드포인트에서 팀
+  이름을 내보낼 때도 이걸 거친다. 앱과 v1 웹 모두 이름이 같으면 같은 팀으로 본다
+- `TeamService`는 `TeamListModule`에 따로 있다. `TeamModule`이 일정·순위 모듈을 쓰고
+  일정·순위가 다시 `TeamService`를 쓰기 때문에, 순환을 피하려고 분리했다
 - 팀 식별자가 두 종류다. `team_num`(149, 우리 `teamNum`)과 `team_seq`/`g-api`(1~11,
   기록실 필터와 `logo_api/logo_m_N.png`)이다. 각 페이지 상단 GNB의 `img[g][g-api]`에
   둘의 대응이 있다

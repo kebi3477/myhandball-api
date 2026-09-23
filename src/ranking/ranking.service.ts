@@ -3,6 +3,7 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import type { CheerioAPI, Cheerio as CheerioType } from "cheerio";
 import { RankItem, RankTeamInfo, RankingResponse } from "./types";
+import { TeamService } from "../team/team.service";
 
 const BASE = process.env.BASE ?? "";
 
@@ -70,6 +71,8 @@ function parseRightTable($right: CheerioType<any>, $: CheerioAPI) {
 
 @Injectable()
 export class RankingService {
+  constructor(private readonly teamService: TeamService) {}
+
   private buildUrl(league_gender: string, league_season: string, league_type: string) {
     const u = new URL(`${BASE}/game/teamranking.php`);
     u.searchParams.set("league_gender", league_gender);
@@ -107,6 +110,10 @@ export class RankingService {
     // 왼/오 표 각각 파싱 후 인덱스로 병합
     const leftRows = parseLeftTable($left, $);
     const rightRows = parseRightTable($right, $);
+
+    // 팀 이름을 팀 목록(/api/team)의 이름으로 맞춘다 ("상무 피닉스" → "상무피닉스")
+    const canonical = await this.teamService.canonicalNames([league_gender]);
+    for (const row of leftRows) row.team.name = canonical(row.team.name);
 
     const len = Math.min(leftRows.length, rightRows.length);
     const items: RankItem[] = [];

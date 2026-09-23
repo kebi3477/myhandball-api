@@ -10,6 +10,7 @@ import { DayBlock, GameItem, ScheduleResponse, TeamInfo, LiveLink } from "./type
 import { intOrNull, kstIso, matchSeqFromHref } from "../common/scrape";
 import { CacheService } from "../cache/cache.service";
 import { MatchState } from "../live/match-state.entity";
+import { TeamService } from "../team/team.service";
 import { computeStatus } from "../live/match-status";
 
 dayjs.locale("ko");
@@ -132,6 +133,7 @@ export class ScheduleService {
   constructor(
     private readonly cache: CacheService,
     @InjectRepository(MatchState) private readonly states: Repository<MatchState>,
+    private readonly teamService: TeamService,
   ) {}
 
   private buildUrl(league_gender: string, league_season: string, league_type: string, league_month: string) {
@@ -225,6 +227,13 @@ export class ScheduleService {
         days.push({ dateLabel, dateISO, games });
       }
     });
+
+    // 팀 이름을 팀 목록(/api/team)의 이름으로 맞춘다 ("상무 피닉스" → "상무피닉스")
+    const canonical = await this.teamService.canonicalNames(league_gender ? [league_gender] : ["M", "W"]);
+    for (const g of days.flatMap((d) => d.games)) {
+      g.home.name = canonical(g.home.name);
+      g.away.name = canonical(g.away.name);
+    }
 
     return {
       url,
