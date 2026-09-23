@@ -266,8 +266,11 @@ Postgres가 모두 연결돼야 한다. CORS는 `CORS_ORIGINS`(쉼표 구분)로
 
 ## 서버 운영 상태 (주의)
 
-`myhandball.kro.kr`는 가정 회선에서 자체 호스팅한다. 2026-09-23 기준으로 외부에서
-443 포트가 응답하지 않았고, 인증서(ZeroSSL)는 수동으로 갱신하고 있다.
+`myhandball.kro.kr`는 가정 회선에서 자체 호스팅한다 (공인 IP = 이 Mac이 있는 공유기).
+HTTPS는 **Caddy**가 인증서를 자동으로 발급·갱신하도록 옮기는 중이다. 설정은 `deploy/Caddyfile`이고,
+`/opt/homebrew/etc/Caddyfile`이 이걸 import하며, `brew services start caddy`로 실행한다. `/api/*`만
+`localhost:3000`으로 넘긴다. API는 `trust proxy: loopback`으로 실제 클라이언트 IP를 받는다.
+공유기 포트포워딩과 `kro.kr` 공용 발급 한도 문제가 남아 있다 (07 B-3).
 
 **앱은 웹과 달리 인증서가 만료되면 완전히 먹통이 된다** (iOS ATS / Android cleartext
 차단). 배포 관련 작업을 하게 되면 이 점부터 먼저 짚는다.
