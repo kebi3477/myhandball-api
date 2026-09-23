@@ -16,7 +16,9 @@ export interface GameItem {
   broadcast: string[];      // 예: ["MAXPORTS","NAVER","다음"]
   liveLinks: LiveLink[];    // 예: [{ provider: "naver", url: "https://..." }]
   venue: string | null;     // 예: "광명 시민체육관"
-  containerId: string | null; // ul id (예: m1768057200)
+  containerId: string | null; // ul id (예: m1768057200). 숫자는 경기일 00:00 KST epoch
+  matchSeq: number | null;    // detail.php?match_seq= 값
+  startsAt: string | null;    // 경기 시작 ISO 8601 (예: "2025-11-15T15:20:00+09:00")
 }
 
 export interface DayBlock {

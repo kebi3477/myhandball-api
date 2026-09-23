@@ -52,14 +52,34 @@
   `Accept-Language: ko`, `timeout: 15000`, `responseType: "text"`, `maxRedirects: 3`,
   `validateStatus: 2xx~3xx`
 - `absUrl()`(상대 경로 → `BASE` 기준 절대 URL)과 `textOrNull()`(trim 후 빈 문자열이면
-  `null`)이 **세 서비스에 각각 복사돼 있다**. 새 모듈에서 공용 유틸로 뽑는 건 괜찮지만,
-  기존 3개 서비스는 동작을 건드리지 않는다
+  `null`)이 **기존 세 서비스에 각각 복사돼 있다**. 새 모듈은 `src/common/scrape.ts`의
+  공용 헬퍼(`fetchHtml`, `absUrl`, `textOrNull`, `intOrNull`, `splitMadeAttempt`,
+  `kstIso`, `matchSeqFromHref`)를 쓴다. 기존 3개 서비스의 복사본은 건드리지 않는다
 - 이미지·링크 URL은 반드시 `absUrl`로 절대 URL로 만들어 내보낸다
 - 순위표는 원본이 좌(순위·팀) / 우(기록) 두 테이블로 나뉘어 있어 **행 인덱스로
-  병합**한다. 행 수가 어긋나면 짧은 쪽에 맞춰 잘린다
-- 일정의 `GameItem.containerId`는 `ul.list`의 id(`m1768057200` 형태)이고, 숫자
-  부분이 경기 시작 epoch(초)다. `detail.php?match_seq=` 링크는 아직 파싱하지 않는다
-  (01번 작업에서 추가)
+  병합**한다. 행 수가 어긋나면 짧은 쪽에 맞춰 잘린다. 경기 선수기록 표도 같은 구조다
+  (`.fixed_table` 배번·이름 + `.scroll_table` 기록)
+- 공용 타입 `Gender`(`"W" | "M"`)는 `src/team/types.ts`에 있고, 다른 모듈이 여기서
+  import한다
+
+### 원본 사이트에서 실측한 함정 (문서와 다른 점)
+
+- **일정의 `<tr id>` / `ul#m…` 숫자는 경기 시작 시각이 아니라 경기일 00:00 KST의
+  epoch다.** 게다가 `<tr id>`는 그날 첫 행에만 붙는다. 경기 시작 시각은 날짜 +
+  `time`을 KST로 합쳐 계산한다 (`GameItem.startsAt`, `kstIso`). 04 문서가 이 전제를
+  쓰고 있으니 주의
+- 일정 페이지에는 표(PC)와 `.record_list.mo_only` 리스트(모바일) 두 벌이 있고, 기존
+  코드는 리스트 쪽을 파싱한다. 리스트 `li`에도 `match_seq` 링크가 있다
+- `detail.php`의 도넛 차트(`Total shots` 등) 퍼센트는 용어설명과 달리 **성공률이 아니라
+  양 팀 시도 수의 점유율**이다 (두 값의 합이 100). 그래서 슛 성공률은 선수기록을
+  합산해서 계산한다
+- 약어 `DR`은 드리블 반칙이 아니라 **블루카드**다 (용어설명 팝업 기준)
+- 존재하지 않는 `match_seq`도 200과 빈 골격을 돌려준다. 팀명과 날짜가 비어 있으면
+  404로 처리한다
+- 선수기록 페이지는 팀마다 `.record_table`이 하나씩 있고(홈 → 원정), 그 안에 필드
+  선수 표와 `h3.con_title 골키퍼` 표가 따로 있다. 골키퍼 표의 위치별 칸은 **방어**
+  기록이다
+- 출전시간은 `"00:58:20"`(시:분:초) 형식이고, 출전하지 않은 선수는 `"0"`이다
 - 공용 타입 `Gender`(`"W" | "M"`)는 `src/team/types.ts`에 있고, 다른 모듈이 여기서
   import한다
 
@@ -81,6 +101,9 @@
   import해서 올라온다. 새 모듈에서 쓸 때는 해당 모듈에서 `CacheModule`을 import한다
 - 키 형태는 `teams:M`처럼 `{도메인}:{파라미터}`
 - **경기 중 데이터는 캐시하지 않는다** (04번 문서 참고). 권장 TTL은 각 작업 문서에 있다
+- 경기 단위 캐시(`game:{matchSeq}`)는 `startsAt` 기준으로 정한다. 시작 전이면
+  min(10분, 시작까지 남은 시간), 시작 후 3시간 안이면 캐시 안 함, 그 뒤로는 24시간
+  (`GameService.ttlFor`)
 
 ## 응답 스펙 원칙
 

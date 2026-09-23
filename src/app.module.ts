@@ -7,6 +7,7 @@ import { ScheduleModule } from './schedule/schedule.module';
 import { TeamModule } from './team/team.module';
 import { RankingModule } from './ranking/ranking.module';
 import { WelcomeModule } from './welcome/welcome.module';
+import { GameModule } from './game/game.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { WelcomeModule } from './welcome/welcome.module';
     TeamModule,
     RankingModule,
     WelcomeModule,
+    GameModule,
   ],
   controllers: [AppController],
   providers: [AppService],

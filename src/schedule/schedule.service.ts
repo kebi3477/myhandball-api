@@ -5,6 +5,7 @@ import type { CheerioAPI, Cheerio as CheerioType } from "cheerio";
 import dayjs from "dayjs";
 import "dayjs/locale/ko";
 import { DayBlock, GameItem, ScheduleResponse, TeamInfo, LiveLink } from "./types";
+import { kstIso, matchSeqFromHref } from "../common/scrape";
 
 dayjs.locale("ko");
 
@@ -65,7 +66,12 @@ function parseLiveLinks($li: CheerioType<any>): LiveLink[] {
   return links;
 }
 
-function parseGame($: CheerioAPI, $li: CheerioType<any>, containerId: string | null): GameItem {
+function parseGame(
+  $: CheerioAPI,
+  $li: CheerioType<any>,
+  containerId: string | null,
+  dateISO: string | null,
+): GameItem {
   const $score = $li.find(".game_score").first();
 
   const home = parseTeam($score.find(".team.home").first());
@@ -92,7 +98,10 @@ function parseGame($: CheerioAPI, $li: CheerioType<any>, containerId: string | n
     venue = textOrNull(parts[0]);
   }
 
-  return { home, away, scoreText, time, broadcast, liveLinks, venue, containerId };
+  const matchSeq = matchSeqFromHref($li.find('a[href*="match_seq="]').first().attr("href"));
+  const startsAt = kstIso(dateISO, time);
+
+  return { home, away, scoreText, time, broadcast, liveLinks, venue, containerId, matchSeq, startsAt };
 }
 
 @Injectable()
@@ -148,7 +157,7 @@ export class ScheduleService {
 
       const games: GameItem[] = [];
       $block.find("ul.list > li").each((__, li) => {
-        games.push(parseGame($, $(li), containerId));
+        games.push(parseGame($, $(li), containerId, dateISO));
       });
 
       if (games.length) {
