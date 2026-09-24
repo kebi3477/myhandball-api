@@ -8,22 +8,16 @@
   `engagement`(예측·MVP 투표·응원글·신고·차단), `push`(푸시 토큰·발송 기록), `profile`(닉네임),
   `catalog`(경기 카탈로그), `attendance`(직관 기록)에서 사용
 
-## 클라이언트와 하위 호환
+## 클라이언트
 
-클라이언트가 둘이다.
+클라이언트는 **Flutter 앱(`../myhandball-app`) 하나**다. 앱의 `HttpHandballApiService`가 이 API를 부르므로
+**응답 스펙을 앱 도메인 모델과 맞추는 것**이 이 저장소 작업의 핵심이다. 응답 스펙(각 모듈의 `types.ts`)은
+앱과 맞춰서만 바꾼다. 원래 지시서 스펙과 달라진 점은 07 C에 모아 두었다.
 
-1. **기존 React 웹** (`../_legercy/myhandball/apps/web`) — 운영 중, 건드리지 않는다
-2. **새 Flutter 앱** (`../myhandball-app`) — 전 화면 구현 완료, 데이터만 목업.
-   `HandballApiService`의 HTTP 구현체만 추가하면 붙는다. 그래서 **응답 스펙을 앱
-   도메인 모델과 맞추는 것**이 이 저장소 작업의 핵심이다. 지금 응답 스펙(각 모듈의
-   `types.ts`)을 임의로 바꾸지 말 것. 원래 지시서 스펙과 달라진 점은 07 C에 모아 두었다
-
-웹이 쓰는 `/api/schedule`, `/api/ranking`, `/api/team`에 대해:
-
-- **필드 추가는 OK, 제거·이름 변경·타입 변경은 금지**
-- 쿼리 파라미터 기본값도 웹이 기대는 동작이므로 바꾸지 않는다 (아래 표 참고)
-- 새 엔드포인트는 자유롭게 추가 가능
-- 이 제약은 웹을 내릴 때까지 유지된다
+- **v1 웹(`../_legercy/myhandball/apps/web`)은 더 이상 고려하지 않는다.** 2026-09에 SSL 인증서가 만료돼
+  서비스가 멈췄다. 예전에 웹 때문에 지키던 "기존 `/api/schedule`·`/api/ranking`·`/api/team`의 필드 제거·타입
+  변경 금지, 기본값 유지" 제약은 없어졌다. 대신 **앱이 쓰는 필드인지 확인하고** 바꾼다
+- 앱 저장소는 이 세션에서 수정하지 않는다 (읽기만). 앱 쪽 변경이 필요하면 무엇을 바꿔야 하는지 알린다
 
 ## 스크래핑 규칙
 
@@ -37,7 +31,7 @@
 | `league_season_month` | `11` | 월 (일정에서만) |
 
 우리 API는 이를 `gender` / `season` / `type` / `month` 쿼리로 받는다.
-**기존 엔드포인트의 기본값이 서로 다르다**는 점에 주의:
+**기존 엔드포인트의 기본값이 서로 다르다**는 점에 주의 (웹 호환 때문에 남은 것이라 이제 정리해도 된다):
 
 | 엔드포인트 | 원본 페이지 | gender 기본 | season 기본 | 잘못된 gender | 캐시 |
 |---|---|---|---|---|---|
@@ -92,7 +86,7 @@
 - **팀 이름의 정본은 `TeamService` 목록(`/api/team`)의 이름이다** (`상무피닉스`, 공백 없음).
   일정·순위 원본은 `상무 피닉스`로 공백이 있어서, `TeamService.canonicalNames()`(공백을 뺀
   키로 매칭)로 목록 이름에 맞춘다. 못 찾으면 원본을 두고 warn한다. 새 엔드포인트에서 팀
-  이름을 내보낼 때도 이걸 거친다. 앱과 v1 웹 모두 이름이 같으면 같은 팀으로 본다
+  이름을 내보낼 때도 이걸 거친다. 앱은 이름이 같으면 같은 팀으로 본다
 - `TeamService`는 `TeamListModule`에 따로 있다. `TeamModule`이 일정·순위 모듈을 쓰고
   일정·순위가 다시 `TeamService`를 쓰기 때문에, 순환을 피하려고 분리했다
 - 팀 식별자가 두 종류다. `team_num`(149, 우리 `teamNum`)과 `team_seq`/`g-api`(1~11,
@@ -151,7 +145,7 @@
 - 응답 타입은 각 모듈의 `types.ts`에 둔다
 - 숫자로 쓸 값은 숫자로 준다. 기존 `GameItem.scoreText`(`"20 : 23"`, 경기 전
   `"- : -"`)처럼 문자열로 주는 실수를 반복하지 않는다. 새 필드는
-  `scoreHome: number | null` 형태로 만든다. 기존 필드는 하위 호환 때문에 그대로 둔다
+  `scoreHome: number | null` 형태로 만든다. 기존 `scoreText`는 앱이 쓰는지 확인한 뒤 정리한다
 - 날짜는 ISO 8601 문자열로 준다. 원본 라벨이 필요하면 `~Label` 필드를 따로 둔다
   (기존 `dateLabel` / `dateISO` 쌍과 같은 방식)
 - 비어 있으면 `null` 또는 `[]`를 준다. `undefined`는 내보내지 않는다(JSON에서 키가
@@ -273,7 +267,7 @@
 
 | 모듈 | 엔드포인트 |
 |---|---|
-| schedule·ranking·team (기존, v1 웹 사용) | `GET /api/schedule`, `/api/schedule/ics/my-team`, `/api/ranking`, `/api/team` |
+| schedule·ranking·team (v1 때부터 있던 것) | `GET /api/schedule`, `/api/schedule/ics/my-team`, `/api/ranking`, `/api/team` |
 | game | `GET /api/game/:matchSeq` (전·후반, 팀 기록, 선수별 기록) |
 | player | `GET /api/player`, `/api/player/:playerSeq`, `/api/player/ranking` |
 | team (상세) | `GET /api/team/:teamNum` (구단 소개, 코칭스태프, 선수, 팀 기록, 전적) |
@@ -311,8 +305,8 @@ curl -s 'http://localhost:3000/api/schedule?gender=M&season=2025&type=1' | jq
 
 `.env`: `BASE`, `PORT`, `REDIS_URL`, `DATABASE_URL`, `DATABASE_SSL`. 기동하려면 Redis와
 Postgres가 모두 연결돼야 한다. CORS는 `CORS_ORIGINS`(쉼표 구분)로 지정하고, 없으면
-`localhost:5173` 계열만 허용한다. `.env.example`에는 `CORS_ORIGINS`가 없다. 네이티브
-앱은 CORS의 영향을 받지 않는다.
+`localhost:5173` 계열만 허용한다. CORS는 브라우저에서 부를 때만 필요하다. 네이티브 앱은 CORS의
+영향을 받지 않으므로, 웹을 다시 만들기 전에는 비워 둬도 된다.
 
 ## 서버 운영 상태 (주의)
 
