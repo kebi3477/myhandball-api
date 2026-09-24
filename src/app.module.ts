@@ -23,6 +23,7 @@ import { PredictionModule } from './prediction/prediction.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { SyncModule } from './sync/sync.module';
 import { AppVersionModule } from './app-version/app-version.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { AppVersionModule } from './app-version/app-version.module';
     AttendanceModule,
     SyncModule,
     AppVersionModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

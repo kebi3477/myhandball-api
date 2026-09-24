@@ -239,6 +239,23 @@
   STORE_URL,NOTES}` 환경변수. `LATEST_VERSION`이 없으면 404(앱이 안내를 안 띄움). `MIN_VERSION`(강제 업데이트)은 기본
   비움 — 자체 호스팅이라 서버가 잠깐 이상할 때 앱을 통째로 막을 수 있다
 
+## 관리자 페이지·백업 (src/admin, src/backup)
+
+- **관리자 페이지** `GET /api/admin` (HTML 한 파일, `admin.page.ts`) + `/api/admin/api/*`. `ADMIN_TOKEN`(24자 이상)이
+  없으면 전부 404로 꺼진다. `Authorization: Bearer <ADMIN_TOKEN>`, IP별 10번 틀리면 10분 잠금(`AdminAuthGuard`)
+  - 테이블 탐색: **엔티티 메타데이터에 있는 테이블만** 다룬다(입력 이름을 SQL에 넣지 않음). 기본키·자동 시각은
+    수정 불가. `profiles.nickname`을 바꾸면 규칙 검사 후 `nickname_key`도 같이 바꾼다
+  - 신고된 응원글: 숨김/복원/삭제. **복원하면 그 글의 신고 기록을 지운다** (안 지우면 신고 한 건에 바로 다시 숨김).
+    삭제는 좋아요·신고도 함께
+  - 새 엔티티를 만들면 테이블 탐색에 자동으로 나온다. 특별한 규칙(연쇄 삭제, 파생 컬럼)이 있으면 `admin-tables.service.ts`
+    나 전용 액션에 넣는다
+- **백업**: API 컨테이너에 pg_dump가 없어서 API가 모든 테이블을 한 트랜잭션(REPEATABLE READ)으로 읽어 JSON.gz로
+  저장한다(`BackupService`). 매일 04:00 KST, `BACKUP_KEEP`(기본 14)개 보관, 위치 `BACKUP_DIR`(도커는 호스트
+  `deploy/backups`). 관리자 페이지에서 즉시 백업·다운로드
+- **복원**: `node dist/scripts/restore-backup.js <파일> [--yes]`. 마지막 마이그레이션이 같을 때만, 한 트랜잭션으로
+  전체 비우기 → 넣기 → SERIAL 번호 맞추기. 실패하면 아무것도 안 바뀐다. 백업 파일의 테이블·컬럼 이름은 검사한다
+- 백업에는 개인정보가 들어 있다 → `backups/`는 git·도커 빌드 제외, 처리방침에 14일 보관 명시
+
 ## 정책 문서 (src/policy)
 
 - 개인정보 처리방침(`privacy-policy.ts`)과 서비스 이용약관(`terms.ts`). 각각 JSON(`/api/policy/{privacy,terms}`)과
@@ -289,6 +306,7 @@
 | 신고·차단 | `POST /api/team/:teamNum/cheer/:cheerId/report`, `GET/POST /api/block`, `DELETE /api/block/:authorId` |
 | sync | `GET /api/favorites/players`, `PUT/DELETE /api/favorites/players/:playerSeq`, `GET/PUT /api/progress/guide` |
 | app-version | `GET /api/app/version?platform=ios\|android` |
+| admin | `GET /api/admin` (화면), `/api/admin/api/{tables,reports,cheers,backups}` (`ADMIN_TOKEN`) |
 
 - **live와 push는 "경기 중에 PBP가 실시간으로 갱신된다"는 미검증 가정 위에 있다.**
   가정이 틀리면 LIVE와 득점 푸시가 저절로 나가지 않는다. 개막(11월) 후 첫 경기에서 먼저

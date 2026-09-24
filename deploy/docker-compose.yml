@@ -40,6 +40,13 @@ services:
       APP_IOS_MIN_VERSION: ${APP_IOS_MIN_VERSION:-}
       APP_IOS_STORE_URL: ${APP_IOS_STORE_URL:-}
       APP_IOS_NOTES: ${APP_IOS_NOTES:-}
+      # 관리자 페이지 (https://<도메인>/api/admin). 비우면(또는 24자 미만) 관리자 기능이 꺼진다
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      # DB 백업 (매일 04:00 KST, 최근 BACKUP_KEEP개). 파일은 호스트의 deploy/backups 에 남는다
+      BACKUP_DIR: /app/backups
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+    volumes:
+      - ./backups:/app/backups
     depends_on:
       postgres:
         condition: service_healthy

@@ -58,6 +58,7 @@ nano .env
 | `ACME_EMAIL` | 인증서 계정 이메일 (만료 안내, 실패 시 ZeroSSL 전환용) |
 | `CURRENT_SEASON` | `2025` (25-26 시즌). 새 시즌 일정이 나오면 바꾼다 |
 | `AUTHOR_ID_SECRET` | 긴 난수 (`openssl rand -hex 32`). 응원글 작성자 ID용. **처음 정한 뒤 바꾸지 않는다** |
+| `ADMIN_TOKEN` | 긴 난수 (`openssl rand -hex 32`). 관리자 페이지 비밀번호. 비우면 관리자 기능이 꺼진다 |
 
 ### 4. 실행
 
@@ -133,7 +134,10 @@ docker compose logs api | grep -i fcm          # "드라이런 모드"가 안 �
 | 로그 | `docker compose logs -f api` (폴러, 푸시 드라이런 로그도 여기 나온다) |
 | 재시작 | `docker compose restart api` |
 | 전체 중지 | `docker compose down` (데이터는 볼륨에 남는다) |
-| DB 백업 | `docker compose exec postgres pg_dump -U myhandball myhandball > backup-$(date +%F).sql` |
+| 관리자 페이지 | `https://myhandball.lab241.com/api/admin` (집 안에서는 `http://<미니 PC IP>:8080/api/admin`). `ADMIN_TOKEN` 입력 |
+| DB 백업 (자동) | 매일 04:00 KST, `deploy/backups/`에 14개 보관. 관리자 페이지에서 "지금 백업"·다운로드 |
+| DB 백업 (수동, pg_dump) | `docker compose exec postgres pg_dump -U myhandball myhandball > backup-$(date +%F).sql` |
+| 백업 복원 | `docker compose exec api node dist/scripts/restore-backup.js backups/<파일> --yes` (`--yes` 없이 먼저 내용 확인) |
 | DB 접속 | `docker compose exec postgres psql -U myhandball myhandball` |
 
 - **`docker compose down -v`는 쓰지 마세요.** 볼륨까지 지워서 DB(예측·투표·응원글·푸시 토큰)와
