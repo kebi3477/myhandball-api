@@ -166,7 +166,7 @@
   `MatchState`(`match_states`), `Prediction`(`predictions`), `MvpVote`(`mvp_votes`),
   `Cheer`(`cheers`), `CheerLike`(`cheer_likes`), `CheerReport`(`cheer_reports`), `Block`(`blocks`),
   `PushToken`(`push_tokens`), `PushLog`(`push_logs`), `Profile`(`profiles`), `MatchMeta`(`match_meta`),
-  `Attendance`(`attendances`). 컬럼은 `@Column({ name: 'snake_case' })`로 매핑하고,
+  `Attendance`(`attendances`), `FavoritePlayer`(`favorite_players`), `GuideProgress`(`guide_progress`). 컬럼은 `@Column({ name: 'snake_case' })`로 매핑하고,
   시각은 `timestamptz`
 - 모듈은 `TypeOrmModule.forFeature([Entity])`로 등록한다. `autoLoadEntities: true`라
   엔티티 목록을 따로 관리하지 않는다
@@ -230,6 +230,13 @@
   (`author-id.ts`, `cheers.author_id`에 저장). **`AUTHOR_ID_SECRET`은 바꾸지 않는다** — 바꾸면 차단 목록이 어긋난다.
   신고 3건(`REPORT_HIDE_THRESHOLD`)이면 자동 `hidden`. 차단(`/api/block`)한 작성자의 글은 그 기기의 목록에서 빠진다
 
+- **기기 설정 동기화(`src/sync`)**: 관심 선수(`/api/favorites/players`, 멱등)와 입문 가이드 진행도
+  (`/api/progress/guide`). 진행도는 **내려가지 않고**(GREATEST) 수료일은 처음 한 번만(COALESCE) — SQL 한 문장이라
+  동시 요청에도 안전. 앱이 기기 ID를 iOS Keychain에 두어 재설치 후에도 같은 ID로 복구된다
+- **앱 버전(`src/app-version`)**: `GET /api/app/version?platform=`. 값은 `APP_{ANDROID|IOS}_{LATEST_VERSION,MIN_VERSION,
+  STORE_URL,NOTES}` 환경변수. `LATEST_VERSION`이 없으면 404(앱이 안내를 안 띄움). `MIN_VERSION`(강제 업데이트)은 기본
+  비움 — 자체 호스팅이라 서버가 잠깐 이상할 때 앱을 통째로 막을 수 있다
+
 ## 정책 문서 (src/policy)
 
 - 개인정보 처리방침(`privacy-policy.ts`)과 서비스 이용약관(`terms.ts`). 각각 JSON(`/api/policy/{privacy,terms}`)과
@@ -278,6 +285,8 @@
 | prediction | `GET /api/prediction/{week,leaderboard,fandom,my}` |
 | attendance | `GET /api/attendance`, `PUT/DELETE /api/attendance/:matchSeq` |
 | 신고·차단 | `POST /api/team/:teamNum/cheer/:cheerId/report`, `GET/POST /api/block`, `DELETE /api/block/:authorId` |
+| sync | `GET /api/favorites/players`, `PUT/DELETE /api/favorites/players/:playerSeq`, `GET/PUT /api/progress/guide` |
+| app-version | `GET /api/app/version?platform=ios\|android` |
 
 - **live와 push는 "경기 중에 PBP가 실시간으로 갱신된다"는 미검증 가정 위에 있다.**
   가정이 틀리면 LIVE와 득점 푸시가 저절로 나가지 않는다. 개막(11월) 후 첫 경기에서 먼저

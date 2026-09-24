@@ -20,6 +20,8 @@ import { ProfileModule } from './profile/profile.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { PredictionModule } from './prediction/prediction.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { SyncModule } from './sync/sync.module';
+import { AppVersionModule } from './app-version/app-version.module';
 
 @Module({
   imports: [
@@ -55,6 +57,8 @@ import { AttendanceModule } from './attendance/attendance.module';
     CatalogModule,
     PredictionModule,
     AttendanceModule,
+    SyncModule,
+    AppVersionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

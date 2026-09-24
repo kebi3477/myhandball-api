@@ -31,6 +31,15 @@ services:
       FCM_PRIVATE_KEY: ${FCM_PRIVATE_KEY:-}
       # 응원글 작성자 ID(HMAC) 비밀값. 한 번 정하면 바꾸지 않는다 (바꾸면 차단 목록이 어긋남)
       AUTHOR_ID_SECRET: ${AUTHOR_ID_SECRET:?deploy/.env에 AUTHOR_ID_SECRET 필요}
+      # 앱 업데이트 안내 (GET /api/app/version). 비우면 그 플랫폼은 404 → 앱이 안내를 안 띄움
+      APP_ANDROID_LATEST_VERSION: ${APP_ANDROID_LATEST_VERSION:-}
+      APP_ANDROID_MIN_VERSION: ${APP_ANDROID_MIN_VERSION:-}
+      APP_ANDROID_STORE_URL: ${APP_ANDROID_STORE_URL:-}
+      APP_ANDROID_NOTES: ${APP_ANDROID_NOTES:-}
+      APP_IOS_LATEST_VERSION: ${APP_IOS_LATEST_VERSION:-}
+      APP_IOS_MIN_VERSION: ${APP_IOS_MIN_VERSION:-}
+      APP_IOS_STORE_URL: ${APP_IOS_STORE_URL:-}
+      APP_IOS_NOTES: ${APP_IOS_NOTES:-}
     depends_on:
       postgres:
         condition: service_healthy
