@@ -31,6 +31,7 @@ export interface MvpResponse {
 
 export interface CheerItem {
   id: number;
+  authorId: string; // 되돌릴 수 없는 작성자 식별자 (차단에 쓴다). 기기 ID가 아니다
   text: string;
   likes: number;
   liked: boolean; // 내가 눌렀는지
@@ -43,4 +44,15 @@ export interface CheerListResponse {
   total: number;
   page: number;
   items: CheerItem[]; // 최신순
+}
+
+export type ReportReason = "spam" | "abuse" | "sexual" | "other";
+
+export interface BlockItem {
+  authorId: string;
+  createdAt: string;
+}
+
+export interface BlockListResponse {
+  items: BlockItem[];
 }

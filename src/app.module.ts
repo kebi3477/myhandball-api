@@ -16,6 +16,10 @@ import { EngagementModule } from './engagement/engagement.module';
 import { PushModule } from './push/push.module';
 import { WidgetModule } from './widget/widget.module';
 import { PolicyModule } from './policy/policy.module';
+import { ProfileModule } from './profile/profile.module';
+import { CatalogModule } from './catalog/catalog.module';
+import { PredictionModule } from './prediction/prediction.module';
+import { AttendanceModule } from './attendance/attendance.module';
 
 @Module({
   imports: [
@@ -47,6 +51,10 @@ import { PolicyModule } from './policy/policy.module';
     PushModule,
     WidgetModule,
     PolicyModule,
+    ProfileModule,
+    CatalogModule,
+    PredictionModule,
+    AttendanceModule,
   ],
   controllers: [AppController],
   providers: [AppService],

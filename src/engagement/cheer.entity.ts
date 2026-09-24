@@ -18,6 +18,11 @@ export class Cheer {
   @Column({ name: "device_id", type: "varchar", length: 64 })
   deviceId!: string;
 
+  /** 공개 작성자 식별자 (author-id.ts). 차단 목록으로 거를 때 쓴다. 기존 글은 기동 시 채운다 */
+  @Index()
+  @Column({ name: "author_id", type: "varchar", length: 16, nullable: true })
+  authorId!: string | null;
+
   @Column({ type: "varchar", length: 200 })
   text!: string;
 

@@ -57,6 +57,7 @@ nano .env
 | `POSTGRES_PASSWORD` | 긴 난수 (`openssl rand -hex 24`). **처음 정한 뒤 바꾸지 않는다** |
 | `ACME_EMAIL` | 인증서 계정 이메일 (만료 안내, 실패 시 ZeroSSL 전환용) |
 | `CURRENT_SEASON` | `2025` (25-26 시즌). 새 시즌 일정이 나오면 바꾼다 |
+| `AUTHOR_ID_SECRET` | 긴 난수 (`openssl rand -hex 32`). 응원글 작성자 ID용. **처음 정한 뒤 바꾸지 않는다** |
 
 ### 4. 실행
 

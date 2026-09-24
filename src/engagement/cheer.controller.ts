@@ -63,6 +63,19 @@ export class CheerController {
     return this.cheerService.remove(teamNum, cheerId, deviceId);
   }
 
+  /** POST /team/132/cheer/7/report { reason, detail? } — 신고. 누적되면 자동 숨김 */
+  @Post(":teamNum/cheer/:cheerId/report")
+  @HttpCode(201)
+  @UseGuards(ThrottlerGuard)
+  report(
+    @Param("teamNum", ParseIntPipe) teamNum: number,
+    @Param("cheerId", ParseIntPipe) cheerId: number,
+    @DeviceId("required") deviceId: string,
+    @Body() body: { reason?: unknown; detail?: unknown },
+  ): Promise<{ reported: true }> {
+    return this.cheerService.report(teamNum, cheerId, deviceId, body ?? {});
+  }
+
   /** POST /team/132/cheer/7/like — 토글 */
   @Post(":teamNum/cheer/:cheerId/like")
   @HttpCode(200)

@@ -4,8 +4,9 @@
 
 - 데이터는 전부 `koreahandball.com` 스크래핑 (`.env`의 `BASE`). `robots.txt`는 전면 허용
 - 전역 prefix `/api` (`src/main.ts`), **인증 없음**
-- Redis 캐시(`CacheService`), Postgres(TypeORM)는 `welcome`(환영 설문), `live`(경기 중계·상태),
-  `engagement`(예측·MVP 투표·응원글), `push`(푸시 토큰·발송 기록)에서 사용
+- Redis 캐시(`CacheService`). Postgres(TypeORM)는 `welcome`(환영 설문), `live`(경기 중계·상태),
+  `engagement`(예측·MVP 투표·응원글·신고·차단), `push`(푸시 토큰·발송 기록), `profile`(닉네임),
+  `catalog`(경기 카탈로그), `attendance`(직관 기록)에서 사용
 
 ## 클라이언트와 하위 호환
 
@@ -163,8 +164,9 @@
 
 - 엔티티: `WelcomeSubmission`(`welcome_submissions`), `LiveEvent`(`live_events`),
   `MatchState`(`match_states`), `Prediction`(`predictions`), `MvpVote`(`mvp_votes`),
-  `Cheer`(`cheers`), `CheerLike`(`cheer_likes`), `PushToken`(`push_tokens`),
-  `PushLog`(`push_logs`). 컬럼은 `@Column({ name: 'snake_case' })`로 매핑하고,
+  `Cheer`(`cheers`), `CheerLike`(`cheer_likes`), `CheerReport`(`cheer_reports`), `Block`(`blocks`),
+  `PushToken`(`push_tokens`), `PushLog`(`push_logs`), `Profile`(`profiles`), `MatchMeta`(`match_meta`),
+  `Attendance`(`attendances`). 컬럼은 `@Column({ name: 'snake_case' })`로 매핑하고,
   시각은 `timestamptz`
 - 모듈은 `TypeOrmModule.forFeature([Entity])`로 등록한다. `autoLoadEntities: true`라
   엔티티 목록을 따로 관리하지 않는다
@@ -208,6 +210,25 @@
   프록시 뒤에서는 `trust proxy` 설정이 필요하다 (07 B-2)
 - 응원글 작성자는 익명이다. 서버가 이름을 만들지 않는다. 차단은 지금 `cheers.hidden`을
   수동으로 켜는 것뿐이다 (07 B-1)
+
+## 앱 v2 기능 (profile · catalog · prediction · attendance · 신고·차단)
+
+- **프로필(`src/profile`)**: `GET/PUT/DELETE /api/profile`. 닉네임 규칙(`nickname.ts`)은 앱
+  `domain/models/nickname.dart`와 **반드시 같아야 한다** (앞뒤 공백 제거 후 코드 포인트 2~10자, 한글·자모·영문·숫자만).
+  중복은 `nickname_key`(소문자, 공백 제거) unique로 막는다 → 409. `GET`은 없으면 200 + JSON `null`
+  (Nest는 null을 빈 본문으로 보내서 `@Res`로 직접 쓴다)
+- **경기 카탈로그(`src/catalog`, `match_meta`)**: 예측·직관은 `match_seq`만 가져서 시즌·부·팀·결과를 여기서 붙인다.
+  기동 시·30분마다·폴러가 경기 종료를 볼 때 현재 시즌 일정 전체를 동기화하고, **결과가 확정된 경기의 예측에
+  `settled`·`hit`을 기록한다**(`settle()`). 일정에 없는 경기(지난 시즌)는 경기 상세로 채운다(`ensure`).
+  경기의 시즌은 `seasonOfDate()`로 구한다 — `currentSeason()`은 `CURRENT_SEASON` 고정값을 따르므로 쓰면 안 된다
+- **승부예측 조회(`src/prediction`)**: `/api/prediction/{week,leaderboard,fandom,my}`. 랭킹은 프로필이 있고
+  확정 10경기 이상(`MIN_SETTLED`)인 기기만, 적중률(반올림 전 비율) → 확정 수 → 닉네임 순, 경쟁 순위(1,1,3).
+  팬덤은 응원팀별 합산 적중률이고 팬이 없는 팀도 0으로 남긴다
+- **직관(`src/attendance`)**: `GET /api/attendance?season=`, `PUT/DELETE /api/attendance/:matchSeq`. 멱등,
+  끝난 경기만(결과 확정 또는 시작 +150분)
+- **신고·차단(`src/engagement`)**: 응원글에 `authorId` = HMAC-SHA256(기기 ID, `AUTHOR_ID_SECRET`) 앞 16자
+  (`author-id.ts`, `cheers.author_id`에 저장). **`AUTHOR_ID_SECRET`은 바꾸지 않는다** — 바꾸면 차단 목록이 어긋난다.
+  신고 3건(`REPORT_HIDE_THRESHOLD`)이면 자동 `hidden`. 차단(`/api/block`)한 작성자의 글은 그 기기의 목록에서 빠진다
 
 ## 정책 문서 (src/policy)
 
@@ -253,6 +274,10 @@
 | engagement | `GET/POST /api/game/:matchSeq/{prediction,mvp}`, `/api/team/:teamNum/cheer` (+ `DELETE`, `/like`) |
 | push·widget | `POST/DELETE /api/push/register`, `GET /api/widget/my-team` |
 | policy | `GET /api/policy/{privacy,terms}` (JSON), `/api/policy/{privacy,terms}/page` (웹페이지), 짧은 주소 `/privacy`, `/terms` (Caddy) |
+| profile | `GET/PUT/DELETE /api/profile` |
+| prediction | `GET /api/prediction/{week,leaderboard,fandom,my}` |
+| attendance | `GET /api/attendance`, `PUT/DELETE /api/attendance/:matchSeq` |
+| 신고·차단 | `POST /api/team/:teamNum/cheer/:cheerId/report`, `GET/POST /api/block`, `DELETE /api/block/:authorId` |
 
 - **live와 push는 "경기 중에 PBP가 실시간으로 갱신된다"는 미검증 가정 위에 있다.**
   가정이 틀리면 LIVE와 득점 푸시가 저절로 나가지 않는다. 개막(11월) 후 첫 경기에서 먼저

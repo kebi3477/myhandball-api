@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, Logger } from "@nes
 import { InjectRepository } from "@nestjs/typeorm";
 import { QueryFailedError, Repository } from "typeorm";
 import { CacheService } from "../cache/cache.service";
+import { MatchCatalogService } from "../catalog/match-catalog.service";
 import { GameService } from "../game/game.service";
 import type { GameDetailResponse, PlayerGameRecord } from "../game/types";
 import { MatchState } from "../live/match-state.entity";
@@ -53,6 +54,7 @@ export class GameEngagementService {
     private readonly playerService: PlayerService,
     private readonly teamService: TeamService,
     private readonly cache: CacheService,
+    private readonly catalog: MatchCatalogService,
   ) {}
 
   // ---------- 승부 예측 ----------
@@ -94,6 +96,8 @@ export class GameEngagementService {
     if (!this.predictionOpen(detail)) throw new ConflictException("경기가 시작돼 예측할 수 없습니다");
 
     await this.predictions.upsert({ matchSeq, deviceId, pick: pick as PredictionPick }, ["matchSeq", "deviceId"]);
+    // 시즌 랭킹·내 예측 목록은 경기 카탈로그로 시즌을 안다. 없으면 여기서 올려 둔다
+    await this.catalog.ensure(matchSeq).catch((e) => this.logger.warn(`경기 카탈로그 등록 실패 (${matchSeq}): ${e}`));
     return this.getPrediction(matchSeq, deviceId);
   }
 

@@ -4,6 +4,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { PushService } from "../push/push.service";
 import type { PushMatch } from "../push/types";
+import { MatchCatalogService } from "../catalog/match-catalog.service";
 import { currentSeason, kstDateString } from "../common/season";
 import { ScheduleService } from "../schedule/schedule.service";
 import { LiveService } from "./live.service";
@@ -39,6 +40,7 @@ export class LivePollerService implements OnApplicationBootstrap, OnModuleDestro
     private readonly liveService: LiveService,
     @InjectRepository(MatchState) private readonly states: Repository<MatchState>,
     private readonly pushService: PushService,
+    private readonly catalog: MatchCatalogService,
   ) {}
 
   private pushMatch(t: Target): PushMatch {
@@ -188,6 +190,12 @@ export class LivePollerService implements OnApplicationBootstrap, OnModuleDestro
           );
         }
         this.logger.log(`폴링 종료 (${why}): ${t.label} ${state.scoreHome}:${state.scoreAway}`);
+        if (state.status === "finished") {
+          // 승부예측 적중 판정 (실패해도 30분 주기 동기화가 다시 한다)
+          await this.catalog
+            .syncSeason(currentSeason())
+            .catch((e) => this.logger.warn(`종료 후 적중 판정 실패: ${e}`));
+        }
         if (!pbp.started && !pbp.rows.length) {
           this.logger.warn(`PBP가 끝까지 비어 있었음 — 실시간 갱신이 안 되는 경기일 수 있음: ${t.label}`);
         }

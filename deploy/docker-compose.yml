@@ -29,6 +29,8 @@ services:
       FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
       FCM_CLIENT_EMAIL: ${FCM_CLIENT_EMAIL:-}
       FCM_PRIVATE_KEY: ${FCM_PRIVATE_KEY:-}
+      # 응원글 작성자 ID(HMAC) 비밀값. 한 번 정하면 바꾸지 않는다 (바꾸면 차단 목록이 어긋남)
+      AUTHOR_ID_SECRET: ${AUTHOR_ID_SECRET:?deploy/.env에 AUTHOR_ID_SECRET 필요}
     depends_on:
       postgres:
         condition: service_healthy

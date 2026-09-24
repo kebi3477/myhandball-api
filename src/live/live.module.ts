@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { CacheModule } from "../cache/cache.module";
+import { CatalogModule } from "../catalog/catalog.module";
 import { GameModule } from "../game/game.module";
 import { PushModule } from "../push/push.module";
 import { ScheduleModule } from "../schedule/schedule.module";
@@ -11,7 +12,7 @@ import { LiveService } from "./live.service";
 import { MatchState } from "./match-state.entity";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([LiveEvent, MatchState]), CacheModule, GameModule, ScheduleModule, PushModule],
+  imports: [TypeOrmModule.forFeature([LiveEvent, MatchState]), CacheModule, CatalogModule, GameModule, ScheduleModule, PushModule],
   controllers: [LiveController],
   providers: [LiveService, LivePollerService],
   exports: [LiveService],

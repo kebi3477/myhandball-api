@@ -17,6 +17,14 @@ export class Prediction {
   @Column({ type: "varchar" })
   pick!: PredictionPick;
 
+  /** 경기 결과가 확정돼 적중 여부가 정해졌는지 (MatchCatalogService.settle) */
+  @Column({ type: "boolean", default: false })
+  settled!: boolean;
+
+  /** 적중 여부. settled가 false면 의미 없음 (false) */
+  @Column({ type: "boolean", default: false })
+  hit!: boolean;
+
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;
 
