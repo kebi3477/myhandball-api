@@ -9,7 +9,6 @@ import { AppService } from './app.service';
 import { ScheduleModule } from './schedule/schedule.module';
 import { TeamModule } from './team/team.module';
 import { RankingModule } from './ranking/ranking.module';
-import { WelcomeModule } from './welcome/welcome.module';
 import { GameModule } from './game/game.module';
 import { PlayerModule } from './player/player.module';
 import { LiveModule } from './live/live.module';
@@ -43,7 +42,6 @@ import { SeasonModule } from './season/season.module';
     ScheduleModule,
     TeamModule,
     RankingModule,
-    WelcomeModule,
     GameModule,
     PlayerModule,
     LiveModule,

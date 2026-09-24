@@ -4,7 +4,7 @@
 
 - 데이터는 전부 `koreahandball.com` 스크래핑 (`.env`의 `BASE`). `robots.txt`는 전면 허용
 - 전역 prefix `/api` (`src/main.ts`), **인증 없음**
-- Redis 캐시(`CacheService`). Postgres(TypeORM)는 `welcome`(환영 설문), `live`(경기 중계·상태),
+- Redis 캐시(`CacheService`). Postgres(TypeORM)는 `live`(경기 중계·상태),
   `engagement`(예측·MVP 투표·응원글·신고·차단), `push`(푸시 토큰·발송 기록), `profile`(닉네임),
   `catalog`(경기 카탈로그), `attendance`(직관 기록)에서 사용
 
@@ -159,11 +159,13 @@
 
 ## DB (TypeORM / Postgres)
 
-- 엔티티: `WelcomeSubmission`(`welcome_submissions`), `LiveEvent`(`live_events`),
+- 엔티티: `LiveEvent`(`live_events`),
   `MatchState`(`match_states`), `Prediction`(`predictions`), `MvpVote`(`mvp_votes`),
   `Cheer`(`cheers`), `CheerLike`(`cheer_likes`), `CheerReport`(`cheer_reports`), `Block`(`blocks`),
   `PushToken`(`push_tokens`), `PushLog`(`push_logs`), `Profile`(`profiles`), `MatchMeta`(`match_meta`),
-  `Attendance`(`attendances`), `FavoritePlayer`(`favorite_players`), `GuideProgress`(`guide_progress`). 컬럼은 `@Column({ name: 'snake_case' })`로 매핑하고,
+  `Attendance`(`attendances`), `FavoritePlayer`(`favorite_players`), `GuideProgress`(`guide_progress`).
+  v1 웹의 온보딩 설문(`welcome_submissions`, 성별·연령대)은 2026-09-24 마이그레이션 `DropWelcomeSubmissions`로 지웠다
+  (웹 중단, 앱은 안 보냄). 엔티티가 없는 테이블 삭제는 `migration:generate`가 못 잡아서 직접 썼다. 컬럼은 `@Column({ name: 'snake_case' })`로 매핑하고,
   시각은 `timestamptz`
 - 모듈은 `TypeOrmModule.forFeature([Entity])`로 등록한다. `autoLoadEntities: true`라
   엔티티 목록을 따로 관리하지 않는다
@@ -178,8 +180,7 @@
   다 있으면 건너뛰고 기록만 남긴다. 일부만 있으면 오류로 멈춘다
 - 엔티티와 DB가 맞는지 확인: `npx typeorm migration:generate --check -d dist/data-source.js src/migrations/Check`
   → "No changes in database schema were found"
-- 입력 검증은 class-validator 없이 컨트롤러에서 직접 하고 `BadRequestException`을
-  던진다 (`welcome.controller.ts`)
+- 입력 검증은 class-validator 없이 컨트롤러·서비스에서 직접 하고 `BadRequestException`을 던진다
 
 ## 실시간 폴링 (src/live)
 
@@ -235,7 +236,9 @@
   끝난 경기만(결과 확정 또는 시작 +150분)
 - **신고·차단(`src/engagement`)**: 응원글에 `authorId` = HMAC-SHA256(기기 ID, `AUTHOR_ID_SECRET`) 앞 16자
   (`author-id.ts`, `cheers.author_id`에 저장). **`AUTHOR_ID_SECRET`은 바꾸지 않는다** — 바꾸면 차단 목록이 어긋난다.
-  신고 3건(`REPORT_HIDE_THRESHOLD`)이면 자동 `hidden`. 차단(`/api/block`)한 작성자의 글은 그 기기의 목록에서 빠진다
+  **신고한 기기에서는 그 글이 바로 빠지고**(목록에서 제외), 신고 3건(`REPORT_HIDE_THRESHOLD`)이면 모두에게 `hidden`.
+  차단(`/api/block`)한 작성자의 글도 그 기기의 목록에서 빠진다. 처리방침·약관에 **운영자가 24시간 안에 검토**한다고
+  약속했다 — 관리자 페이지 "신고된 응원글" 탭을 매일 본다
 
 - **기기 설정 동기화(`src/sync`)**: 관심 선수(`/api/favorites/players`, 멱등)와 입문 가이드 진행도
   (`/api/progress/guide`). 진행도는 **내려가지 않고**(GREATEST) 수료일은 처음 한 번만(COALESCE) — SQL 한 문장이라
@@ -268,14 +271,16 @@
 ## 정책 문서 (src/policy)
 
 - 개인정보 처리방침(`privacy-policy.ts`)과 서비스 이용약관(`terms.ts`). 각각 JSON(`/api/policy/{privacy,terms}`)과
-  웹페이지(`/api/policy/{privacy,terms}/page`)로 나간다. 처리방침은 v1 웹의 형식·연락처를 이어받았고,
-  이용약관은 v1에 없어서 새로 썼다 (응원글 금지 내용·제재, 예측·투표는 금전 없음, 연맹 비공식·면책)
+  웹페이지(`/api/policy/{privacy,terms}/page`)로 나간다. **JSON 구조(키)는 바꾸지 않는다** — 본문만 고친다.
+  개정일은 `effectiveDate`(`"YYYY-MM-DD"`)와 `version`. 처리방침 v3.0(2026-09-24, 앱 1.2.0 심사용)은 앱 쪽 요청서
+  기준으로 전면 갱신했다: 받지 않는 정보, 익명 기기 ID(**iOS는 Keychain이라 앱 삭제 후에도 남음**), 기능별 보관 값,
+  랭킹 프로필 공개 범위(앱 화면의 표와 같은 문구), 신고 처리(신고자 즉시 숨김·3건 전체 숨김·**24시간 안 검토**)
 - **앱은 설정 화면에서 `https://myhandball.lab241.com/privacy`, `/terms`를 외부 브라우저로 연다**
   (앱 `AppConfig.privacyUrl`/`termsUrl`). 이 짧은 주소는 Caddy가 `/page` 경로로 이어 준다. 문구는
   앱 심사 없이 여기서 고친다
 - **DB에 저장하는 항목, 보관 기간, 외부 전송(FCM 등)을 바꾸면 이 문서도 같이 고치고
-  `version`·`effectiveDate`를 올린다.** 지금 기준: 기기 ID, 예측·투표·응원글·좋아요, 푸시 토큰,
-  첫 설정(성별·연령대·마이팀), IP는 쓰기 제한에만 1분 메모리 사용, 쿠키 없음, 국외 이전은 Google(FCM)·Apple(APNs)
+  `version`·`effectiveDate`를 올린다.** 문의처는 `kebi6270@gmail.com`. 데이터 출처 기관명은 **한국핸드볼연맹**
+  (koreahandball.com 제목 기준. 대한핸드볼협회가 아니다)
 
 ## 푸시·위젯 (src/push, src/widget)
 

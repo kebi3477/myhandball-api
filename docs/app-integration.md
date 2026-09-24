@@ -38,7 +38,7 @@
 | attendance `PUT` | 응답은 `{ matchSeq, attendedAt }`. 앞으로 할 경기는 400, 없는 경기는 404 |
 | favorites `PUT` | 응답은 `{ playerSeq, addedAt }`. `playerSeq`가 숫자가 아니면(`n:홍길동`) 400 |
 | progress/guide `PUT` | `doneCount`는 정수만 (문자열 `"5"`도 400) |
-| report | 응답 `201 { "reported": true }`. `cheerId`는 숫자. 내 글은 400, 숨겨진 글은 404 |
+| report | 응답 `201 { "reported": true }`. `cheerId`는 숫자. 내 글은 400, 숨겨진 글은 404. **신고한 기기의 응원글 목록에서는 그 글이 바로 빠진다** (앱 신고 시트의 "바로 숨겨지고"와 맞춤, 2026-09-24) |
 | block `POST` | 응답 `201 { authorId, createdAt }`, 이미 차단해도 201. `GET`은 `{ items: [{ authorId, createdAt }] }` |
 | app/version | 값을 설정하지 않은 플랫폼은 **404** → 안내를 띄우지 않으면 된다 |
 | my | `startsAt`이 `Z`(UTC) 형식. 일정(`+09:00`)과 섞여 있지만 둘 다 ISO 8601 |

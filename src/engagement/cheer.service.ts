@@ -66,8 +66,9 @@ export class CheerService implements OnApplicationBootstrap {
 
   async list(teamNum: number, gender: Gender | null, page: number, deviceId: string | null): Promise<CheerListResponse> {
     await this.resolveTeam(teamNum, gender);
-    // 내가 차단한 작성자의 글은 뺀다 (기기 단위)
+    // 내가 차단한 작성자의 글과 내가 신고한 글은 뺀다 (기기 단위). 신고한 글은 신고 즉시 내 화면에서 사라진다
     const blocked = deviceId ? (await this.blocks.find({ where: { deviceId } })).map((b) => b.authorId) : [];
+    const reported = deviceId ? (await this.reports.find({ where: { deviceId } })).map((r) => r.cheerId) : [];
     const qb = this.cheers
       .createQueryBuilder("c")
       .where("c.team_num = :teamNum AND c.hidden = false", { teamNum })
@@ -76,6 +77,7 @@ export class CheerService implements OnApplicationBootstrap {
       .skip((page - 1) * PAGE_SIZE)
       .take(PAGE_SIZE);
     if (blocked.length) qb.andWhere("c.author_id NOT IN (:...blocked)", { blocked });
+    if (reported.length) qb.andWhere("c.id NOT IN (:...reported)", { reported });
     const [rows, total] = await qb.getManyAndCount();
     const liked = new Set(
       deviceId && rows.length
@@ -124,7 +126,8 @@ export class CheerService implements OnApplicationBootstrap {
 
   /**
    * 신고. 같은 기기가 같은 글을 다시 신고하면 409.
-   * 신고가 REPORT_HIDE_THRESHOLD건 쌓이면 자동으로 숨긴다
+   * 신고한 기기에서는 즉시 안 보이고(list), 신고가 REPORT_HIDE_THRESHOLD건 쌓이면 모두에게 숨긴다.
+   * 운영자는 관리자 페이지에서 24시간 안에 검토해 삭제하거나 복원한다 (이용약관·처리방침에 약속한 기한)
    */
   async report(
     teamNum: number,
