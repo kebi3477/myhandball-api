@@ -4,9 +4,7 @@ import {
   Controller,
   Delete,
   Get,
-  Header,
   HttpCode,
-  NotFoundException,
   Param,
   ParseIntPipe,
   Patch,
@@ -26,15 +24,24 @@ import { ModerationService } from "./moderation.service";
  * 관리자 페이지: GET /api/admin (화면), /api/admin/api/* (데이터, ADMIN_TOKEN 필요).
  * ADMIN_TOKEN이 없으면 전부 404 (관리자 기능 꺼짐)
  */
+// ADMIN_TOKEN이 없을 때 보여 줄 안내 (빈 화면 대신 무엇을 설정해야 하는지 알린다)
+const ADMIN_DISABLED_HTML = `<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>관리자 기능 꺼짐</title><style>body{font:15px/1.6 -apple-system,"Apple SD Gothic Neo",sans-serif;max-width:560px;margin:12vh auto;padding:0 16px}
+code{background:rgba(127,127,127,.15);padding:1px 5px;border-radius:4px}</style></head><body>
+<h2>관리자 기능이 꺼져 있습니다</h2>
+<p>서버 환경변수 <code>ADMIN_TOKEN</code>이 없거나 24자보다 짧습니다.</p>
+<ol><li><code>.env</code>(도커는 <code>deploy/.env</code>)에 <code>ADMIN_TOKEN=</code> 긴 난수를 넣습니다.<br>예: <code>openssl rand -hex 32</code></li>
+<li>서버를 다시 시작합니다. (<code>.env</code>는 시작할 때만 읽습니다)</li></ol></body></html>`;
+
 @Controller("admin")
 export class AdminPageController {
   @Get()
-  @Header("Content-Type", "text/html; charset=utf-8")
-  @Header("Cache-Control", "no-store")
-  @Header("X-Robots-Tag", "noindex")
-  page(): string {
-    if ((process.env.ADMIN_TOKEN?.trim() ?? "").length < 24) throw new NotFoundException();
-    return ADMIN_PAGE_HTML;
+  page(@Res() res: Response): void {
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("X-Robots-Tag", "noindex");
+    const enabled = (process.env.ADMIN_TOKEN?.trim() ?? "").length >= 24;
+    res.status(enabled ? 200 : 404).type("html").send(enabled ? ADMIN_PAGE_HTML : ADMIN_DISABLED_HTML);
   }
 }
 
