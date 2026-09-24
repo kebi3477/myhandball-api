@@ -164,9 +164,17 @@
   시각은 `timestamptz`
 - 모듈은 `TypeOrmModule.forFeature([Entity])`로 등록한다. `autoLoadEntities: true`라
   엔티티 목록을 따로 관리하지 않는다
-- **`synchronize: true`다.** 엔티티를 고치면 운영 DB 스키마가 기동할 때 자동으로
-  바뀐다. 사용자 데이터(예측·투표·응원글·푸시 토큰)가 쌓이므로 **컬럼 이름 변경·삭제 금지**. 운영 전에
-  마이그레이션으로 전환해야 한다 (07 B-4)
+- **스키마는 마이그레이션으로만 바꾼다** (`synchronize: false`, 2026-09-24 전환). 접속 설정은
+  `src/database/db-options.ts` 하나를 앱과 CLI(`src/data-source.ts`)가 같이 쓴다. 서버는 기동할 때 아직 적용 안 한
+  마이그레이션을 실행한다(`migrationsRun`). **엔티티를 고쳤으면 반드시:**
+  1. `npm run migration:generate -- src/migrations/<무엇을바꾸는지>` (로컬 DB와 엔티티 차이로 SQL 생성)
+  2. 생성된 파일의 SQL을 읽는다. **`DROP COLUMN`/`DROP TABLE`이 있으면 데이터가 사라진다** — 컬럼 이름 변경은
+     TypeORM이 삭제+추가로 만드니 `RENAME COLUMN`으로 직접 고친다
+  3. 커밋 → 배포하면 서버가 기동하며 적용. 확인은 `npm run migration:show`
+- 기준 마이그레이션 `InitialSchema`는 테이블 16개 전체다. 예전에 synchronize로 만든 DB(운영)에서는 테이블이 이미
+  다 있으면 건너뛰고 기록만 남긴다. 일부만 있으면 오류로 멈춘다
+- 엔티티와 DB가 맞는지 확인: `npx typeorm migration:generate --check -d dist/data-source.js src/migrations/Check`
+  → "No changes in database schema were found"
 - 입력 검증은 class-validator 없이 컨트롤러에서 직접 하고 `BadRequestException`을
   던진다 (`welcome.controller.ts`)
 

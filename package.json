@@ -6,7 +6,11 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/main",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\""
+    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
+    "migration:generate": "npm run build && typeorm migration:generate -d dist/data-source.js",
+    "migration:run": "typeorm migration:run -d dist/data-source.js",
+    "migration:revert": "typeorm migration:revert -d dist/data-source.js",
+    "migration:show": "typeorm migration:show -d dist/data-source.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.8",

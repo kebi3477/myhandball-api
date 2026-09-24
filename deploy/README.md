@@ -108,10 +108,10 @@ docker compose exec api node -e "fetch('http://localhost:3000/api/health').then(
 
 ```bash
 # 작업 PC에서 → 서버로 키 파일 복사 (저장소 안에 두지만 git·도커 빌드에서는 제외돼 있음)
-scp myhandball-226dc-firebase-adminsdk-*.json <서버>:~/myhandball-api/deploy/
+scp myhandball-226dc-firebase-adminsdk-*.json <서버>:~/projects/myhandball-api/deploy/
 
 # 서버에서
-cd ~/myhandball-api/deploy
+cd ~/projects/myhandball-api/deploy
 sudo apt install -y jq                         # 없으면
 sed -i '/^FCM_/d' .env                         # 비어 있던 FCM_ 줄 삭제
 jq -r '"FCM_PROJECT_ID=\(.project_id)\nFCM_CLIENT_EMAIL=\(.client_email)\nFCM_PRIVATE_KEY=\(.private_key|tojson)"' \
@@ -138,8 +138,9 @@ docker compose logs api | grep -i fcm          # "드라이런 모드"가 안 �
 
 - **`docker compose down -v`는 쓰지 마세요.** 볼륨까지 지워서 DB(예측·투표·응원글·푸시 토큰)와
   인증서가 사라집니다. 인증서를 다시 받다가 발급 한도에 걸릴 수 있습니다
-- DB 스키마는 API가 기동할 때 엔티티에 맞춰 자동으로 바뀝니다(`synchronize: true`).
-  운영 데이터가 쌓이면 마이그레이션으로 바꿔야 합니다 (`docs/api-tasks/07-후속-작업.md` B-4)
+- DB 스키마는 **마이그레이션**으로 바뀝니다. API가 기동할 때 아직 적용하지 않은 것을 실행합니다.
+  적용 상태: `docker compose exec api npm run migration:show` (`[X]`가 적용된 것)
+- 스키마가 바뀌는 배포 전에는 DB를 백업합니다 (위 "DB 백업" 명령)
 - 폴러(경기 중 PBP 폴링)는 **API 컨테이너 하나에서만** 돌아야 합니다. `api`를 여러 개로 늘리지 마세요
 
 ## 인증서가 안 나올 때

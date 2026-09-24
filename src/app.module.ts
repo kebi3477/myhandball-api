@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { dbOptions } from './database/db-options';
 import { ScheduleModule as CronModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
@@ -26,17 +27,12 @@ import { AppVersionModule } from './app-version/app-version.module';
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
+      // 스키마는 마이그레이션으로만 바꾼다 (src/database/db-options.ts 참고).
+      // 기동할 때 아직 적용하지 않은 마이그레이션을 실행한다
       useFactory: () => ({
-        type: 'postgres',
-        url: process.env.DATABASE_URL,
-        ssl:
-          process.env.DATABASE_SSL === 'true'
-            ? {
-                rejectUnauthorized: false,
-              }
-            : false,
+        ...dbOptions(),
         autoLoadEntities: true,
-        synchronize: true,
+        migrationsRun: true,
       }),
     }),
     CronModule.forRoot(),
