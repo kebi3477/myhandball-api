@@ -24,6 +24,9 @@ services:
       # Caddy가 다른 컨테이너(사설망)라서 그 IP를 믿어야 실제 클라이언트 IP가 보인다
       TRUST_PROXY: uniquelocal
       CURRENT_SEASON: ${CURRENT_SEASON:-}
+      # 연맹이 일정보다 먼저 발표한 개막일 (GET /api/season). 형식 "<시즌>=<ISO 시각>"
+      SEASON_OPENS_AT_M: ${SEASON_OPENS_AT_M:-}
+      SEASON_OPENS_AT_W: ${SEASON_OPENS_AT_W:-}
       LIVE_POLLING: ${LIVE_POLLING:-true}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}

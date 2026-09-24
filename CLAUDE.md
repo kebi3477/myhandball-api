@@ -107,6 +107,9 @@
 - `teamranking_part.php`는 라운드별 순위가 아니라 부문별 팀 순위다. 라운드별 순위
   추이는 원본에 없어서, 팀 상세는 일정에서 만든 승무패 배열(`results`)만 준다
 - 일정 API는 `month` 없이 부르면 시즌 전체를 준다 (남자부 2025 시즌 75경기)
+- 경기장(`venue`) 이름은 원본에서 일관된다 (2023~2025 약 500경기, 10곳, 공백·접두어 변형 없음. 2026-09-24 확인).
+  앱의 "경기장 도장깨기"가 이 문자열을 키로 쓴다. 표기가 갈리기 시작하면 `venueId`(정규화 키)를 추가한다.
+  구단별 홈구장 정보는 원본에 없다
 - HTML 소스의 개행은 들여쓰기용이다. 줄바꿈을 살릴 때는 `<br>`, `</p>`만 기준으로 한다
 - **경기 중계 데이터는 `playbyplay.php?match_seq=N`(PBP)에 있다.** 전·후반 표마다 행이
   하나씩이고 열은 경기 시계 | 홈 행동 | 누적 스코어(득점 행만) | 점수차 | 원정 행동이다.
@@ -223,9 +226,11 @@
   기동 시·30분마다·폴러가 경기 종료를 볼 때 현재 시즌 일정 전체를 동기화하고, **결과가 확정된 경기의 예측에
   `settled`·`hit`을 기록한다**(`settle()`). 일정에 없는 경기(지난 시즌)는 경기 상세로 채운다(`ensure`).
   경기의 시즌은 `seasonOfDate()`로 구한다 — `currentSeason()`은 `CURRENT_SEASON` 고정값을 따르므로 쓰면 안 된다
-- **승부예측 조회(`src/prediction`)**: `/api/prediction/{week,leaderboard,fandom,my}`. 랭킹은 프로필이 있고
-  확정 10경기 이상(`MIN_SETTLED`)인 기기만, 적중률(반올림 전 비율) → 확정 수 → 닉네임 순, 경쟁 순위(1,1,3).
-  팬덤은 응원팀별 합산 적중률이고 팬이 없는 팀도 0으로 남긴다
+- **승부예측 조회(`src/prediction`)**: `/api/prediction/{week,leaderboard,fandom,my}`. 랭킹 대상은 프로필이 있고
+  확정 10경기 이상(`MIN_SETTLED`)인 기기(`rankedQualified`). 정렬은 적중률(반올림 전, 나눗셈 없이 비교) → 확정 수 →
+  **프로필 생성 시각**(순서 고정용, 시안에는 없음). **같은 순위를 주지 않는다**(순위 = 인덱스 + 1).
+  `meTopPercent` = max(1, ceil(전체 순위/전체 인원×100)), 팀 범위여도 전체 기준.
+  팬덤 = 그 팀 **랭킹 대상** 팬들의 적중 합 ÷ 확정 합 (경기 수 가중, 사용자 평균 아님). 팬이 없는 팀도 0으로 남긴다
 - **직관(`src/attendance`)**: `GET /api/attendance?season=`, `PUT/DELETE /api/attendance/:matchSeq`. 멱등,
   끝난 경기만(결과 확정 또는 시작 +150분)
 - **신고·차단(`src/engagement`)**: 응원글에 `authorId` = HMAC-SHA256(기기 ID, `AUTHOR_ID_SECRET`) 앞 16자
@@ -235,6 +240,10 @@
 - **기기 설정 동기화(`src/sync`)**: 관심 선수(`/api/favorites/players`, 멱등)와 입문 가이드 진행도
   (`/api/progress/guide`). 진행도는 **내려가지 않고**(GREATEST) 수료일은 처음 한 번만(COALESCE) — SQL 한 문장이라
   동시 요청에도 안전. 앱이 기기 ID를 iOS Keychain에 두어 재설치 후에도 같은 ID로 복구된다
+- **시즌 기간(`src/season`)**: `GET /api/season?gender=`. 일정이 있으면 첫·마지막 경기, 없으면
+  `SEASON_OPENS_AT_{M|W}="<시즌>=<ISO>"`(연맹 공지로 확인한 값만, **추정 금지**). 시즌 표시가 다르면 쓰지 않는다.
+  `isOffseason`은 개막 전이거나 마지막 경기 날 이후면 true. `CURRENT_SEASON` 고정이 남아 있어도 다음 시즌 개막일이
+  지났으면 시즌 중으로 본다. 개발용 `?now=`
 - **앱 버전(`src/app-version`)**: `GET /api/app/version?platform=`. 값은 `APP_{ANDROID|IOS}_{LATEST_VERSION,MIN_VERSION,
   STORE_URL,NOTES}` 환경변수. `LATEST_VERSION`이 없으면 404(앱이 안내를 안 띄움). `MIN_VERSION`(강제 업데이트)은 기본
   비움 — 자체 호스팅이라 서버가 잠깐 이상할 때 앱을 통째로 막을 수 있다

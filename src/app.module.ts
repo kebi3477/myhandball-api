@@ -24,6 +24,7 @@ import { AttendanceModule } from './attendance/attendance.module';
 import { SyncModule } from './sync/sync.module';
 import { AppVersionModule } from './app-version/app-version.module';
 import { AdminModule } from './admin/admin.module';
+import { SeasonModule } from './season/season.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { AdminModule } from './admin/admin.module';
     SyncModule,
     AppVersionModule,
     AdminModule,
+    SeasonModule,
   ],
   controllers: [AppController],
   providers: [AppService],

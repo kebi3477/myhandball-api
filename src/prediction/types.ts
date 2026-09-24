@@ -43,6 +43,8 @@ export interface LeaderboardResponse {
   rows: LeaderboardRow[];
   me: LeaderboardRow | null;
   meHint: string | null; // me가 null인 이유 (앱이 그대로 띄운다)
+  /** 내 상위 % = max(1, ceil(전체 순위 / 전체 인원 × 100)). scope와 상관없이 전체 기준. 랭킹 밖이면 null */
+  meTopPercent: number | null;
 }
 
 export interface FandomRow {

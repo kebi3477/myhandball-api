@@ -25,14 +25,6 @@ const norm = (s: string) => s.replace(/\s+/g, "");
 /** 0~100, 소수점 첫째 자리 반올림 */
 const rateOf = (hits: number, settled: number) => (settled ? Math.round((hits / settled) * 1000) / 10 : 0);
 
-/** 경쟁 순위(1,1,3). key가 같으면 같은 순위 */
-function competitionRanks<T>(rows: T[], sameAsPrev: (a: T, b: T) => boolean): number[] {
-  return rows.map((_, i) => i).reduce<number[]>((ranks, i) => {
-    ranks.push(i > 0 && sameAsPrev(rows[i - 1], rows[i]) ? ranks[i - 1] : i + 1);
-    return ranks;
-  }, []);
-}
-
 @Injectable()
 export class PredictionStatsService {
   constructor(
@@ -141,29 +133,19 @@ export class PredictionStatsService {
     limit: number,
     deviceId: string | null,
   ): Promise<LeaderboardResponse> {
-    const stats = new Map((await this.deviceStats(season)).map((s) => [s.deviceId, s]));
-    const profiles = await this.profiles.find(scope === "team" ? { where: { teamNum: teamNum! } } : {});
+    const stats = await this.deviceStats(season);
     const teams = await this.teamsOf(["M", "W"]);
 
-    // 프로필이 있고 확정 MIN_SETTLED경기 이상인 사람만. 정렬: 적중률 → 확정 수 → 닉네임
-    const qualified = profiles
-      .map((p) => ({ p, s: stats.get(p.deviceId) ?? { settled: 0, hits: 0 } }))
-      .filter(({ s }) => s.settled >= MIN_SETTLED)
-      .sort(
-        (a, b) =>
-          b.s.hits / b.s.settled - a.s.hits / a.s.settled ||
-          b.s.settled - a.s.settled ||
-          a.p.nickname.localeCompare(b.p.nickname, "ko"),
-      );
-    const ranks = competitionRanks(
-      qualified,
-      (a, b) => a.s.hits * b.s.settled === b.s.hits * a.s.settled && a.s.settled === b.s.settled,
-    );
+    // 전체 순위를 먼저 만든다. 팀 범위는 여기서 거르고, 내 상위 %는 범위와 상관없이 전체 기준이다
+    const everyone = await this.rankedQualified(stats);
+    const qualified = scope === "team" ? everyone.filter(({ p }) => p.teamNum === teamNum) : everyone;
+
     const toRow = (i: number): LeaderboardRow => {
       const { p, s } = qualified[i];
       const team = teams.get(`${p.gender}:${p.teamNum}`);
       return {
-        rank: ranks[i],
+        // 같은 순위를 주지 않는다 (정렬 후 인덱스 + 1)
+        rank: i + 1,
         nickname: p.nickname,
         teamNum: p.teamNum,
         teamName: team?.name ?? "",
@@ -178,58 +160,72 @@ export class PredictionStatsService {
 
     let me: LeaderboardRow | null = null;
     let meHint: string | null = null;
+    let meTopPercent: number | null = null;
     if (deviceId) {
       const myIndex = qualified.findIndex(({ p }) => p.deviceId === deviceId);
+      const myOverall = everyone.findIndex(({ p }) => p.deviceId === deviceId);
+      // 상위 % = max(1, ceil(전체 순위 / 전체 인원 × 100)). 범위가 '내 팀 팬'이어도 전체 기준
+      if (myOverall >= 0) meTopPercent = Math.max(1, Math.ceil(((myOverall + 1) / everyone.length) * 100));
       if (myIndex >= 0) {
         me = toRow(myIndex);
       } else {
         const myProfile = await this.profiles.findOne({ where: { deviceId } });
-        const mySettled = stats.get(deviceId)?.settled ?? 0;
+        const mySettled = stats.find((x) => x.deviceId === deviceId)?.settled ?? 0;
         if (!myProfile) meHint = "닉네임을 정하면 랭킹에 참여할 수 있어요";
         else if (scope === "team" && myProfile.teamNum !== teamNum) meHint = "이 랭킹은 해당 팀을 응원팀으로 고른 사람만 올라가요";
         else meHint = `확정 ${MIN_SETTLED - mySettled}경기 더 참여하면 랭킹에 올라가요`;
       }
     }
 
-    return { season, scope, minSettled: MIN_SETTLED, total: qualified.length, rows, me, meHint };
+    return { season, scope, minSettled: MIN_SETTLED, total: qualified.length, rows, me, meHint, meTopPercent };
+  }
+
+  /**
+   * 랭킹 대상자(프로필 있음 + 확정 MIN_SETTLED경기 이상)를 순위 순으로.
+   * 정렬: 적중률(반올림 전 비율) 내림차순 → 확정 경기 수 내림차순 → 프로필 생성 시각 오름차순(먼저 참여한 사람이 위).
+   * 세 번째 기준이 없으면 동률끼리 요청마다 순서가 흔들린다
+   */
+  private async rankedQualified(stats: { deviceId: string; settled: number; hits: number }[]) {
+    const byDevice = new Map(stats.map((s) => [s.deviceId, s]));
+    const profiles = await this.profiles.find();
+    return profiles
+      .map((p) => ({ p, s: byDevice.get(p.deviceId) ?? { settled: 0, hits: 0 } }))
+      .filter(({ s }) => s.settled >= MIN_SETTLED)
+      .sort(
+        (a, b) =>
+          b.s.hits * a.s.settled - a.s.hits * b.s.settled || // 적중률 비교를 나눗셈 없이 (정확한 동률 판정)
+          b.s.settled - a.s.settled ||
+          a.p.createdAt.getTime() - b.p.createdAt.getTime() ||
+          a.p.id - b.p.id,
+      );
   }
 
   // ---------- B-4 팬덤 적중률 ----------
 
   async fandom(gender: Gender, season: string): Promise<FandomResponse> {
-    const stats = new Map((await this.deviceStats(season)).map((s) => [s.deviceId, s]));
-    const fans = await this.profiles.find({ where: { gender } });
+    // 팀 적중률 = 그 팀 팬들의 적중 합 / 확정 경기 합 (경기 수 가중). 사용자별 적중률의 평균이 아니다.
+    // 분모에는 랭킹 대상자(프로필 + 확정 MIN_SETTLED경기 이상)만 들어간다
+    const ranked = await this.rankedQualified(await this.deviceStats(season));
     const teams = (await this.teamService.fetchTeams(gender)).teams;
 
     // 팬이 없는 팀도 rate 0, fans 0으로 남긴다
     const agg = teams.map((t) => {
-      let settled = 0;
-      let hits = 0;
-      let count = 0;
-      for (const f of fans.filter((f) => f.teamNum === t.teamNum)) {
-        const s = stats.get(f.deviceId);
-        if (!s || s.settled < 1) continue;
-        count++;
-        settled += s.settled;
-        hits += s.hits;
-      }
-      return { t, fans: count, settled, hits };
+      const fans = ranked.filter(({ p }) => p.gender === gender && p.teamNum === t.teamNum);
+      return {
+        t,
+        fans: fans.length,
+        settled: fans.reduce((n, { s }) => n + s.settled, 0),
+        hits: fans.reduce((n, { s }) => n + s.hits, 0),
+      };
     });
-    agg.sort(
-      (a, b) =>
-        (b.settled ? b.hits / b.settled : 0) - (a.settled ? a.hits / a.settled : 0) ||
-        b.settled - a.settled ||
-        a.t.name.localeCompare(b.t.name, "ko"),
-    );
-    const ranks = competitionRanks(
-      agg,
-      (a, b) => a.hits * b.settled === b.hits * a.settled && a.settled === b.settled,
-    );
+    // 적중률 내림차순 → 확정 경기 합 내림차순 → teamNum (순서 고정). 팬이 없는 팀은 적중률 0
+    const ratio = (x: { hits: number; settled: number }) => (x.settled ? x.hits / x.settled : 0);
+    agg.sort((a, b) => ratio(b) - ratio(a) || b.settled - a.settled || a.t.teamNum - b.t.teamNum);
     return {
       season,
       gender,
       items: agg.map((a, i) => ({
-        rank: ranks[i],
+        rank: i + 1,
         teamNum: a.t.teamNum,
         teamName: a.t.name,
         teamLogoUrl: a.t.logoUrl,
