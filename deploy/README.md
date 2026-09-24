@@ -130,7 +130,7 @@ docker compose logs api | grep -i fcm          # "드라이런 모드"가 안 �
 
 | 할 일 | 명령 |
 |---|---|
-| 코드 업데이트 | `git pull && docker compose up -d --build api` |
+| 코드 업데이트 | `git pull origin main && docker compose up -d --build api` |
 | 로그 | `docker compose logs -f api` (폴러, 푸시 드라이런 로그도 여기 나온다) |
 | 재시작 | `docker compose restart api` |
 | 전체 중지 | `docker compose down` (데이터는 볼륨에 남는다) |
