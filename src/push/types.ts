@@ -23,3 +23,16 @@ export interface PushMatch {
   homeName: string;
   awayName: string;
 }
+
+export interface PushTestResponse {
+  /** 실제로 FCM에 넘겼는지. 드라이런이면 false */
+  sent: boolean;
+
+  /** FCM 자격증명이 없어 로그만 남긴 상태인지 */
+  dryRun: boolean;
+
+  platform: "ios" | "android";
+
+  /** 실패 사유. 성공이면 null */
+  reason: string | null;
+}

@@ -227,6 +227,9 @@
   종료. 시작·종료는 `push_logs`의 unique(match_seq, kind)로 경기당 한 번만 나가고,
   득점은 `PushService`가 120초 창으로 묶는다(창은 메모리). 푸시 실패는 폴링을 멈추지 않는다
 - FCM 자격증명(`FCM_*`)이 없으면 **드라이런**이다. 발송 대신 `[dry-run]` 로그를 남긴다
+- `POST /api/push/test`: `X-Device-Id`의 그 기기에게만 테스트 알림 1건 (`data.kind: "test"`, `matchSeq` 없음,
+  `push_logs` 기록 안 함, 기기당 1분 1회 + ThrottlerGuard). 드라이런이면 200 `{ sent: false, dryRun: true }`.
+  비시즌에 실발송 경로와 서버의 드라이런 여부를 확인하는 용도다. FCM 호출은 `deliver()` 하나로 모았다
 - 대상은 경기 두 팀 중 하나를 마이팀으로 등록한 기기다. 종료 알림은 받는 팀 기준으로 승·패·무를 붙인다
 - 위젯 상태 판정은 순수 함수 `widget.builder.ts`의 `buildWidget(games, now)`다. 시각을
   넣어 과거 시즌 데이터로 검증할 수 있다. 위젯은 자체 캐시가 없다

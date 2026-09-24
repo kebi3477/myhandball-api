@@ -1,4 +1,12 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleDestroy } from "@nestjs/common";
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleDestroy,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import type { Messaging } from "firebase-admin/messaging";
 import { In, QueryFailedError, Repository } from "typeorm";
@@ -7,11 +15,13 @@ import type { Gender } from "../team/types";
 import { createMessaging } from "./fcm.client";
 import { PushLog } from "./push-log.entity";
 import { PushToken } from "./push-token.entity";
-import type { PushKind, PushMatch, PushRegisterResponse } from "./types";
+import type { PushKind, PushMatch, PushRegisterResponse, PushTestResponse } from "./types";
 
 // 핸드볼은 한 경기에 50골이 넘는다. 득점마다 보내지 않고 120초 창으로 묶는다
 const GOAL_BATCH_MS = 120 * 1000;
 const FCM_BATCH = 500; // sendEachForMulticast 한 번에 보낼 수 있는 최대 토큰 수
+// 테스트 발송은 자기 기기로만 가지만, 연타로 FCM 쿼터를 태우지 않도록 기기당 1분에 1회
+const TEST_INTERVAL_MS = 60 * 1000;
 const INVALID_TOKEN_CODES = new Set([
   "messaging/registration-token-not-registered",
   "messaging/invalid-registration-token",
@@ -31,6 +41,23 @@ interface Recipient {
   teamNum: number;
 }
 
+interface Delivery {
+  title: string;
+  body: string;
+  data: Record<string, string>;
+  /** 알림 센터에 한 줄만 쌓이게 하는 키 (Android tag·collapseKey, iOS apns-collapse-id) */
+  collapse: string;
+}
+
+interface DeliveryResult {
+  successCount: number;
+  failureCount: number;
+  /** FCM이 무효라고 답해 enabled=false로 끈 토큰 */
+  invalid: string[];
+  /** 토큰별 실패 코드 (성공이면 null). tokens와 같은 순서 */
+  errors: (string | null)[];
+}
+
 const norm = (s: string) => s.replace(/\s+/g, "");
 
 @Injectable()
@@ -38,6 +65,8 @@ export class PushService implements OnModuleDestroy {
   private readonly logger = new Logger(PushService.name);
   private readonly messaging: Messaging | null;
   private readonly goalWindows = new Map<number, { timer: NodeJS.Timeout; match: PushMatch; latest: GoalSnapshot }>();
+  /** 기기별 마지막 테스트 발송 시각 (메모리. 서버 한 대 기준) */
+  private readonly lastTestAt = new Map<string, number>();
 
   constructor(
     @InjectRepository(PushToken) private readonly tokens: Repository<PushToken>,
@@ -77,6 +106,47 @@ export class PushService implements OnModuleDestroy {
   async unregister(deviceId: string): Promise<{ ok: true }> {
     await this.tokens.delete({ deviceId });
     return { ok: true };
+  }
+
+  // ---------- 테스트 발송 ----------
+
+  /**
+   * 그 기기(X-Device-Id)에게만 테스트 알림 1건을 즉시 보낸다. 경기와 무관하고 push_logs에도 남기지 않는다.
+   * 드라이런이면 보내지 않고 dryRun: true를 돌려준다 (그 자체가 확인하고 싶은 정보)
+   */
+  async sendTest(deviceId: string): Promise<PushTestResponse> {
+    const row = await this.tokens.findOne({ where: { deviceId } });
+    if (!row) throw new NotFoundException("등록된 기기가 없습니다. 앱에서 알림을 켜고 마이팀을 골라주세요");
+
+    const now = Date.now();
+    for (const [id, at] of this.lastTestAt) if (now - at >= TEST_INTERVAL_MS) this.lastTestAt.delete(id);
+    if (this.lastTestAt.has(deviceId)) {
+      throw new HttpException("테스트 알림은 기기당 1분에 한 번만 보낼 수 있습니다", HttpStatus.TOO_MANY_REQUESTS);
+    }
+    this.lastTestAt.set(deviceId, now);
+
+    const msg: Delivery = {
+      title: "알림이 정상입니다",
+      body: "마이핸드볼 푸시 테스트",
+      // matchSeq는 넣지 않는다. 앱은 matchSeq가 있으면 경기 상세를 열려고 한다
+      data: { kind: "test" },
+      collapse: "myhandball-test",
+    };
+
+    if (!this.messaging) {
+      this.logger.log(`[dry-run] test device=${deviceId} (${row.platform}) — ${msg.title} / ${msg.body}`);
+      return { sent: false, dryRun: true, platform: row.platform, reason: null };
+    }
+
+    try {
+      const res = await this.deliver([row.token], msg);
+      const reason = res.errors[0];
+      this.logger.log(`test device=${deviceId} (${row.platform}) ${reason ? `실패: ${reason}` : "성공"}`);
+      return { sent: !reason, dryRun: false, platform: row.platform, reason };
+    } catch (e) {
+      this.logger.error(`FCM 테스트 발송 실패 (device=${deviceId}): ${e}`);
+      return { sent: false, dryRun: false, platform: row.platform, reason: String(e) };
+    }
   }
 
   // ---------- 발송 (폴러가 호출) ----------
@@ -187,32 +257,41 @@ export class PushService implements OnModuleDestroy {
     msg: { title: string; body: string },
   ) {
     if (!recipients.length) return;
-    // 경기별로 알림 센터에 한 줄만 쌓이도록 (Android tag·collapseKey, iOS apns-collapse-id)
-    const collapse = `match-${match.matchSeq}`;
     if (!this.messaging) {
       this.logger.log(`[dry-run] ${kind} match_seq=${match.matchSeq} 대상 ${recipients.length}대 — ${msg.title} / ${msg.body}`);
       return;
     }
+    // 경기별로 알림 센터에 한 줄만 쌓이도록
+    const delivery: Delivery = {
+      ...msg,
+      data: { matchSeq: String(match.matchSeq), kind },
+      collapse: `match-${match.matchSeq}`,
+    };
     for (let i = 0; i < recipients.length; i += FCM_BATCH) {
       const batch = recipients.slice(i, i + FCM_BATCH).map((r) => r.token);
       try {
-        const res = await this.messaging.sendEachForMulticast({
-          tokens: batch,
-          notification: { title: msg.title, body: msg.body },
-          data: { matchSeq: String(match.matchSeq), kind },
-          android: { collapseKey: collapse, notification: { tag: collapse } },
-          apns: { headers: { "apns-collapse-id": collapse } },
-        });
-        const invalid = res.responses
-          .map((r, j) => (!r.success && INVALID_TOKEN_CODES.has(r.error?.code ?? "") ? batch[j] : null))
-          .filter((t): t is string => t !== null);
-        if (invalid.length) await this.tokens.update({ token: In(invalid) }, { enabled: false });
+        const res = await this.deliver(batch, delivery);
         this.logger.log(
-          `${kind} match_seq=${match.matchSeq} 성공 ${res.successCount} / 실패 ${res.failureCount} (무효 토큰 ${invalid.length}개 끔)`,
+          `${kind} match_seq=${match.matchSeq} 성공 ${res.successCount} / 실패 ${res.failureCount} (무효 토큰 ${res.invalid.length}개 끔)`,
         );
       } catch (e) {
         this.logger.error(`FCM 발송 실패 (${kind}, match_seq=${match.matchSeq}): ${e}`);
       }
     }
+  }
+
+  /** FCM에 실제로 보낸다 (최대 FCM_BATCH개). 무효 토큰은 enabled=false로 끈다. messaging이 있을 때만 부른다 */
+  private async deliver(tokens: string[], msg: Delivery): Promise<DeliveryResult> {
+    const res = await this.messaging!.sendEachForMulticast({
+      tokens,
+      notification: { title: msg.title, body: msg.body },
+      data: msg.data,
+      android: { collapseKey: msg.collapse, notification: { tag: msg.collapse } },
+      apns: { headers: { "apns-collapse-id": msg.collapse } },
+    });
+    const errors = res.responses.map((r) => (r.success ? null : (r.error?.code ?? r.error?.message ?? "unknown")));
+    const invalid = tokens.filter((_, j) => INVALID_TOKEN_CODES.has(errors[j] ?? ""));
+    if (invalid.length) await this.tokens.update({ token: In(invalid) }, { enabled: false });
+    return { successCount: res.successCount, failureCount: res.failureCount, invalid, errors };
   }
 }
