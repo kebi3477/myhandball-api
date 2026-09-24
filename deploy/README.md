@@ -75,6 +75,26 @@ https://myhandball.lab241.com/api/health
 https://myhandball.lab241.com/api/schedule?gender=M&season=2025&type=1
 ```
 
+### 집 안에서 테스트할 때 (HTTP, 포트 8080)
+
+공유기가 집 안에서 공인 IP로 되돌아오는 접속을 지원하지 않아서, **같은 공유기에 붙은 기기(작업 PC,
+Wi-Fi 쓰는 테스트 폰)는 도메인으로 서버에 닿지 않습니다.** 그때는 미니 PC 내부 IP의 8080으로 붙습니다.
+라우팅(`/api`, `/privacy`, `/terms`)은 도메인 쪽과 같고, 인증서 없이 HTTP입니다.
+
+```bash
+hostname -I                                              # 미니 PC 내부 IP (예: 192.168.45.50)
+sudo ufw allow from 192.168.45.0/24 to any port 8080     # ufw를 쓰면 집 안에서만 허용
+```
+
+```
+http://<미니 PC 내부 IP>:8080/api/health
+```
+
+앱을 붙일 때: `flutter run --dart-define=API_BASE_URL=http://<미니 PC 내부 IP>:8080`
+
+- **공유기에서 8080은 포워딩하지 마세요.** 암호화되지 않은 입구라 집 안에서만 써야 합니다
+- 포트를 바꾸려면 `deploy/.env`에 `LAN_HTTP_PORT=원하는포트` (미니 PC 쪽 포트만 바뀜)
+
 미니 PC 안에서 인증서 없이 API만 볼 때:
 
 ```bash

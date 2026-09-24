@@ -10,7 +10,8 @@
 	email {$ACME_EMAIL}
 }
 
-{$DOMAIN:myhandball.lab241.com} {
+# 도메인 입구와 집 안 입구가 같이 쓰는 라우팅
+(myhandball_routes) {
 	encode zstd gzip
 
 	# API만 NestJS로 넘긴다. 앱은 https://myhandball.lab241.com/api/... 로 부른다
@@ -34,4 +35,17 @@
 	handle {
 		respond "myhandball api" 404
 	}
+}
+
+# 외부 입구 (HTTPS)
+{$DOMAIN:myhandball.lab241.com} {
+	import myhandball_routes
+}
+
+# 집 안 입구 (HTTP, 인증서 없음): http://<미니 PC 내부 IP>:8080/api/...
+# 공유기는 집 안에서 공인 IP(도메인)로 되돌아오는 접속을 지원하지 않아서, 같은 공유기 안의
+# 기기(작업 PC, 테스트 폰)는 도메인으로 서버에 닿지 않는다. 그때 쓰는 입구다.
+# 공유기에서 8080을 포워딩하지 않으므로 외부에는 열리지 않는다
+http://:{$LAN_HTTP_PORT:8080} {
+	import myhandball_routes
 }
