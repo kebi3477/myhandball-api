@@ -49,3 +49,11 @@
 http://:{$LAN_HTTP_PORT:8080} {
 	import myhandball_routes
 }
+
+# Cassette (github.com/kebi3477/cassette-api, 미니PC ~/projects/cassette-api)
+# 같은 443을 나눠 쓴다. 인증서는 여기서 발급·갱신하고, cassette 쪽 입구 컨테이너(cassette-edge)로 넘긴다.
+# cassette-edge는 cassette-api의 docker-compose.edge.yml로 이 네트워크(myhandball_default)에 들어온다.
+# cassette가 내려가 있으면 이 도메인만 502가 나고 myhandball에는 영향이 없다.
+cassette.lab241.com {
+	reverse_proxy cassette-edge:80
+}
