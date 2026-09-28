@@ -9,8 +9,9 @@ import type { PolicyDocument } from "./types";
  */
 export const TERMS_OF_SERVICE: PolicyDocument = {
   title: "서비스 이용약관",
-  version: "1.2",
-  effectiveDate: "2026-09-24",
+  version: "1.3",
+  // TODO: 처리방침 v3.1과 같은 날(1.2.0 심사 제출일)로 채운다. 채우기 전에는 배포하지 않는다
+  effectiveDate: "TODO",
   intro:
     "이 약관은 마이핸드볼(이하 '서비스')을 이용하는 조건과 절차, 이용자와 운영자의 권리·의무를 정합니다. " +
     "서비스를 이용하면 이 약관에 동의한 것으로 봅니다.",
@@ -125,15 +126,15 @@ export const TERMS_OF_SERVICE: PolicyDocument = {
       id: "contact",
       title: "12. 문의 및 준거법",
       items: [
-        "서비스 이용·이의 제기 등의 문의: kebi6270@gmail.com",
+        "서비스 이용·이의 제기 등의 문의: kebi3477@naver.com",
         "이 약관은 대한민국 법률에 따라 해석되며, 분쟁은 「민사소송법」에 따른 관할 법원에서 해결합니다.",
       ],
     },
     {
       id: "effective",
       title: "부칙",
-      paragraphs: ["이 약관은 2026년 9월 24일부터 적용됩니다. (이전: v1.1 2026년 9월 24일, v1.0 2026년 9월 23일)"],
+      paragraphs: ["이 약관은 【TODO: 1.2.0 심사 제출일】부터 적용됩니다. v1.3 변경 내용: 문의 이메일 변경 (12항). (이전: v1.2 2026년 9월 24일, v1.1 2026년 9월 24일, v1.0 2026년 9월 23일)"],
     },
   ],
-  contact: { email: "kebi6270@gmail.com" },
+  contact: { email: "kebi3477@naver.com" },
 };

@@ -212,7 +212,7 @@ export const PRIVACY_POLICY: PolicyDocument = {
       title: "12. 개인정보 보호책임자 및 문의처",
       paragraphs: ["개인정보 처리에 관한 문의, 열람·삭제 요청, 불만, 피해 구제 요청은 아래로 보내 주세요."],
       items: [
-        "이메일: kebi6270@gmail.com",
+        "이메일: kebi3477@naver.com",
         "개인정보 침해 신고: 개인정보침해신고센터 (privacy.kisa.or.kr, 국번없이 118)",
         "개인정보 분쟁 조정: 개인정보분쟁조정위원회 (www.kopico.go.kr, 1833-6972)",
       ],
@@ -255,10 +255,10 @@ export const PRIVACY_POLICY: PolicyDocument = {
       title: "16. 처리방침의 변경",
       paragraphs: [
         "이 처리방침은 【TODO: 1.2.0 출시일】부터 적용됩니다. 내용이 바뀌면 시행 전에 앱 공지로 알립니다.",
-        "v3.1 변경 내용: 광고(Google AdMob) 도입에 따른 수집 항목·제3자 제공·이용자 선택권 추가 (1·6·7·8·9·14·15항)",
+        "v3.1 변경 내용: 광고(Google AdMob) 도입에 따른 수집 항목·제3자 제공·이용자 선택권 추가 (1·6·7·8·9·14·15항), 문의 이메일 변경 (12항)",
         "이전 처리방침: v3.0 (2026년 9월 24일), v2.x (2026년 9월 23~24일), v1 (2026년 1월 1일). v3.0부터 v1 웹의 첫 설정 설문(성별·연령대·마이팀)을 수집하지 않으며, 보관하던 기록은 삭제했습니다.",
       ],
     },
   ],
-  contact: { email: "kebi6270@gmail.com" },
+  contact: { email: "kebi3477@naver.com" },
 };

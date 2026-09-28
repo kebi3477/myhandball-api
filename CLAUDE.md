@@ -280,7 +280,7 @@
   (앱 `AppConfig.privacyUrl`/`termsUrl`). 이 짧은 주소는 Caddy가 `/page` 경로로 이어 준다. 문구는
   앱 심사 없이 여기서 고친다
 - **DB에 저장하는 항목, 보관 기간, 외부 전송(FCM 등)을 바꾸면 이 문서도 같이 고치고
-  `version`·`effectiveDate`를 올린다.** 문의처는 `kebi6270@gmail.com`. 데이터 출처 기관명은 **한국핸드볼연맹**
+  `version`·`effectiveDate`를 올린다.** 문의처는 `kebi3477@naver.com` (2026-09-29에 바꿈, 소개 페이지와 같다). 데이터 출처 기관명은 **한국핸드볼연맹**
   (koreahandball.com 제목 기준. 대한핸드볼협회가 아니다)
 
 ## 푸시·위젯 (src/push, src/widget)
