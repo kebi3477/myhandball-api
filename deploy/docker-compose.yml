@@ -101,6 +101,8 @@ services:
       API_UPSTREAM: api:3000
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # 대표 웹사이트 정적 파일 (Caddyfile의 마지막 handle)
+      - ./site:/srv/site:ro
       # 인증서·ACME 계정이 여기 저장된다. 지우면 재발급 (발급 한도에 걸릴 수 있음)
       - caddy_data:/data
       - caddy_config:/config

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>마이핸드볼 — 핸드볼 H리그 일정·순위·기록</title>
+<meta name="description" content="경기 일정부터 승부 예측까지, 핸드볼 H리그 팬을 위한 앱 마이핸드볼. 처음 보는 사람도 3분이면 규칙을 알고, 응원팀 경기를 놓치지 않아요.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="마이핸드볼">
+<meta property="og:title" content="마이핸드볼 — 핸드볼의 모든 순간">
+<meta property="og:description" content="경기 일정부터 승부 예측까지, 핸드볼 H리그 팬을 위한 앱">
+<meta property="og:url" content="https://myhandball.lab241.com/">
+<meta property="og:image" content="https://myhandball.lab241.com/shots/02-home.jpg">
+<meta name="theme-color" content="#0068FF">
+<link rel="icon" type="image/png" href="/assets/favicon.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+<!-- 디자인 핸드오프 design_handoff_website (2026-09-28). 수치는 README 그대로다 -->
+<style>
+  :root {
+    --brand: #0068FF; --brand-hover: #0050C8;
+    --text: #111; --sub: #555; --muted: #777;
+    --border: #E5E5E5; --line: #EEEEEE; --tint: #F5F8FF;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; word-break: keep-all; background: #fff; color: var(--text);
+         font-family: Pretendard, system-ui, -apple-system, sans-serif; }
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { color: var(--brand-hover); }
+  img { display: block; max-width: 100%; height: auto; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+
+  header { position: sticky; top: 0; z-index: 5; background: rgba(255,255,255,.92);
+           -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+           border-bottom: 1px solid var(--line); }
+  header .wrap { padding: 0 24px; height: 64px; display: flex; align-items: center;
+                 justify-content: space-between; gap: 16px; }
+  header .logo img { height: 28px; width: auto; }
+  header nav { display: flex; gap: 20px; font-size: 14px; font-weight: 600; flex-wrap: wrap; }
+  header nav a { color: var(--sub); }
+  header nav a:hover { color: var(--brand-hover); }
+
+  .hero { padding: 72px 24px 40px; display: grid; gap: 48px; align-items: center;
+          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .hero-copy { display: flex; flex-direction: column; gap: 20px; }
+  .eyebrow { font-size: 15px; font-weight: 700; color: var(--brand); }
+  h1 { margin: 0; font-size: clamp(36px, 5vw, 56px); line-height: 1.15; font-weight: 800;
+       letter-spacing: -1.5px; text-wrap: pretty; }
+  .lead { margin: 0; font-size: 18px; line-height: 1.6; color: var(--sub); text-wrap: pretty; }
+  .stores { display: flex; gap: 12px; flex-wrap: wrap; padding-top: 8px; }
+  .store { height: 56px; padding: 0 22px; border-radius: 14px; background: #111; color: #fff;
+           display: flex; align-items: center; gap: 12px; }
+  .store:hover { color: #fff; background: #000; }
+  .store svg { width: 22px; height: 22px; flex-shrink: 0; }
+  .store span { display: flex; flex-direction: column; line-height: 1.1; }
+  .store small { font-size: 11px; font-weight: 500; opacity: .85; }
+  .store b { font-size: 18px; font-weight: 700; }
+  .hero-shots { display: flex; justify-content: center; gap: 16px; }
+  .hero-shots img { width: min(44%, 240px); border-radius: 28px;
+                    box-shadow: 0 20px 50px rgba(0,40,120,.18); }
+  .hero-shots img + img { margin-top: 48px; }
+
+  #features { background: var(--tint); padding: 80px 24px; }
+  #features .wrap { display: flex; flex-direction: column; gap: 40px; }
+  h2 { margin: 0; font-size: 36px; font-weight: 800; letter-spacing: -1px; }
+  .shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+  .shots img { width: 100%; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,40,120,.10); }
+
+  #support { padding: 80px 24px; }
+  #support .wrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+  .card { border: 1px solid var(--border); border-radius: 24px; padding: 32px;
+          display: flex; flex-direction: column; gap: 12px; }
+  .card .label { font-size: 14px; font-weight: 700; color: var(--brand); }
+  .card .title { font-size: 24px; font-weight: 800; }
+  .card p { margin: 0; font-size: 16px; color: var(--sub); line-height: 1.6; }
+  .card a { font-size: 18px; font-weight: 700; padding-top: 8px; }
+
+  footer { border-top: 1px solid var(--line); padding: 32px 24px; }
+  footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px;
+                 font-size: 13px; color: var(--muted); }
+  footer .links { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  footer .privacy { color: #333; font-weight: 700; }
+  footer .terms { color: var(--sub); }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <a class="logo" href="#top" aria-label="마이핸드볼"><img src="/assets/logo-wordmark-blue.png" alt="마이핸드볼" width="118" height="28"></a>
+    <nav><a href="#features">기능</a><a href="#support">문의</a></nav>
+  </div>
+</header>
+
+<main>
+  <section id="top" class="hero wrap">
+    <div class="hero-copy">
+      <span class="eyebrow">핸드볼 H리그 팬을 위한 앱</span>
+      <h1>경기 일정부터 승부 예측까지, 핸드볼의 모든 순간</h1>
+      <p class="lead">처음 보는 사람도 3분이면 규칙을 알고, 응원팀 경기를 놓치지 않아요.</p>
+      <div class="stores">
+        <a class="store" href="https://apps.apple.com/kr/app/id6757665858" rel="noopener">
+          <svg viewBox="0 0 384 512" fill="#fff" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+          <span><small>Download on the</small><b>App Store</b></span>
+        </a>
+        <a class="store" href="https://play.google.com/store/apps/details?id=com.myhandball.app" rel="noopener">
+          <svg viewBox="0 0 512 512" aria-hidden="true"><path fill="#00D7FE" d="M48 32 L272 256 L48 480 C38 475 32 465 32 452 V60 C32 47 38 37 48 32Z"/><path fill="#FFCE00" d="M352 176 L432 222 C456 236 456 276 432 290 L352 336 L272 256Z"/><path fill="#FF3A44" d="M48 480 L272 256 L352 336 L90 486 C76 494 60 492 48 480Z"/><path fill="#00F076" d="M48 32 C60 20 76 18 90 26 L352 176 L272 256Z"/></svg>
+          <span><small>GET IT ON</small><b>Google Play</b></span>
+        </a>
+      </div>
+    </div>
+    <div class="hero-shots">
+      <img src="/shots/02-home.jpg" alt="홈 화면" width="600" height="1300">
+      <img src="/shots/05-prediction.jpg" alt="승부 예측" width="600" height="1300">
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <h2>이런 걸 할 수 있어요</h2>
+      <div class="shots">
+        <img src="/shots/03-schedule.jpg" alt="경기 일정" width="600" height="1300" loading="lazy">
+        <img src="/shots/04-stat.jpg" alt="순위·기록" width="600" height="1300" loading="lazy">
+        <img src="/shots/05-prediction.jpg" alt="승부 예측" width="600" height="1300" loading="lazy">
+        <img src="/shots/06-attendance.jpg" alt="직관 기록" width="600" height="1300" loading="lazy">
+        <img src="/shots/07-my.jpg" alt="MY" width="600" height="1300" loading="lazy">
+      </div>
+    </div>
+  </section>
+
+  <section id="support">
+    <div class="wrap">
+      <div class="card">
+        <span class="label">고객 지원</span>
+        <span class="title">이용 중 궁금한 점이 있나요?</span>
+        <p>오류 제보, 계정·랭킹 문의, 데이터 삭제 요청을 받아요.</p>
+        <a href="mailto:kebi3477@naver.com?subject=%5B%EB%A7%88%EC%9D%B4%ED%95%B8%EB%93%9C%EB%B3%BC%5D%20%EA%B3%A0%EA%B0%9D%20%EB%AC%B8%EC%9D%98">kebi3477@naver.com</a>
+      </div>
+      <div class="card">
+        <span class="label">광고·제휴</span>
+        <span class="title">핸드볼 팬을 만나고 싶다면</span>
+        <p>스폰서십, 앱 내 광고, 구단·리그 제휴를 제안해 주세요.</p>
+        <a href="mailto:kebi3477@naver.com?subject=%5B%EB%A7%88%EC%9D%B4%ED%95%B8%EB%93%9C%EB%B3%BC%5D%20%EA%B4%91%EA%B3%A0%C2%B7%EC%A0%9C%ED%9C%B4%20%EC%A0%9C%EC%95%88">kebi3477@naver.com</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="links">
+      <span>운영자 고동민 · kebi3477@naver.com</span>
+      <a class="privacy" href="/privacy">개인정보 처리방침</a>
+      <a class="terms" href="/terms">서비스 이용약관</a>
+    </div>
+    <span>© 2026 MyHandball. 팀 명칭은 각 구단의 자산입니다.</span>
+  </div>
+</footer>
+</body>
+</html>

@@ -38,9 +38,11 @@
 		respond "google.com, pub-6280185901199691, DIRECT, f08c47fec0942fa0" 200
 	}
 
-	# 나머지 경로는 아직 쓰는 곳이 없다 (v1 웹을 여기 다시 올리면 이 자리에 추가)
+	# 나머지는 대표 웹사이트 (정적 1페이지). 스토어의 개발자 웹사이트가 이 주소다.
+	# 파일은 deploy/site/ (컨테이너 /srv/site), 디자인은 앱 쪽 design_handoff_website
 	handle {
-		respond "myhandball api" 404
+		root * /srv/site
+		file_server
 	}
 }
 
