@@ -31,6 +31,13 @@
 		reverse_proxy {$API_UPSTREAM:api:3000}
 	}
 
+	# AdMob 판매자 인증 (IAB app-ads.txt). 스토어의 개발자 웹사이트를 이 도메인으로 두고,
+	# AdMob이 여기서 퍼블리셔 ID를 확인한다. 광고 계정이 바뀌면 이 줄을 고친다
+	handle /app-ads.txt {
+		header Content-Type "text/plain; charset=utf-8"
+		respond "google.com, pub-6280185901199691, DIRECT, f08c47fec0942fa0" 200
+	}
+
 	# 나머지 경로는 아직 쓰는 곳이 없다 (v1 웹을 여기 다시 올리면 이 자리에 추가)
 	handle {
 		respond "myhandball api" 404
