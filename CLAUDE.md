@@ -275,6 +275,7 @@
   개정일은 `effectiveDate`(`"YYYY-MM-DD"`)와 `version`. 처리방침 v3.0(2026-09-24, 앱 1.2.0 심사용)은 앱 쪽 요청서
   기준으로 전면 갱신했다: 받지 않는 정보, 익명 기기 ID(**iOS는 Keychain이라 앱 삭제 후에도 남음**), 기능별 보관 값,
   랭킹 프로필 공개 범위(앱 화면의 표와 같은 문구), 신고 처리(신고자 즉시 숨김·3건 전체 숨김·**24시간 안 검토**)
+- 처리방침 v3.1(2026-09-29 작성, **미배포**)은 앱 1.2.0의 AdMob 광고 반영: 광고 SDK가 Google로 직접 보내는 항목, 국외 이전 표의 Google AdMob 행, 15항 맞춤형 광고 선택권. **본문의 `【TODO: …】`(시행일, EEA 개인정보 옵션 위치)와 `effectiveDate: "TODO"`를 채우기 전에는 배포하지 않는다.** 스토어 신고(Play 데이터 보안·App Store 개인정보 라벨)와 어긋나면 안 된다
 - **앱은 설정 화면에서 `https://myhandball.lab241.com/privacy`, `/terms`를 외부 브라우저로 연다**
   (앱 `AppConfig.privacyUrl`/`termsUrl`). 이 짧은 주소는 Caddy가 `/page` 경로로 이어 준다. 문구는
   앱 심사 없이 여기서 고친다
