@@ -27,6 +27,7 @@
 | 응원글 `authorId` | ✅ | |
 | `POST /api/team/:teamNum/cheer/:cheerId/report` | ✅ | |
 | `POST/GET/DELETE /api/block` | ✅ | |
+| `GET /api/record/team` | ❌ 미배포 | 2026-09-30 추가 (분석 탭 팀 기록). 아래 2번 "팀 기록" |
 
 ### 스펙과 다른 점 (앱 모델에 반영할 것)
 
@@ -761,6 +762,85 @@ null
 {
   "authorId": "ee46e875b6f98dbc",
   "createdAt": "2026-09-24T12:30:10.270Z"
+}
+```
+
+### 팀 기록 (분석 탭)
+
+### GET /api/record/team?gender=M&season=2025&type=1
+
+→ **200** · 로컬 (원본 `/record/` 실데이터, 2026-09-30). 6개 팀 중 1위와 6위만 옮겼다
+
+- 기본값: `gender` M, `season` 현재 시즌(`currentSeason()`, 지금 2025), `type` 1(정규리그)
+- `gender`가 M/W가 아니거나 `season`이 네 자리 숫자가 아니거나 `type`이 1/2가 아니면 400
+- `items`는 원본 순위 순서. **시즌 시작 전이면 `items: []`** (200, 오류 아님)
+- 원본 요청이 실패하면 `/api/ranking`처럼 500 (빈 목록과 헷갈리지 않게)
+- 경기 수·승점·실점·최근 5경기는 `/api/ranking`에서 팀 이름으로 합친다. 이름은 둘 다 `canonicalNames()`를 거친다
+
+```json
+{
+  "url": "https://www.koreahandball.com/record/?league_season=2025&league_type=1&league_gender=M",
+  "leagueGender": "M",
+  "leagueSeason": "2025",
+  "leagueType": "1",
+  "items": [
+    {
+      "rank": 1,
+      "team": {
+        "name": "인천도시공사",
+        "logoUrl": "https://www.koreahandball.com/static/images/logo_api/logo_m_4.png"
+      },
+      "goals": 733,
+      "fieldGoals": 644,
+      "goals6m": 227,
+      "goalsWing": 32,
+      "goals9m": 173,
+      "goals7m": 89,
+      "drawn7m": 105,
+      "goalsFast": 138,
+      "goalsBreakthrough": 55,
+      "assists": 379,
+      "passClearChances": 119,
+      "turnovers": 148,
+      "steals": 78,
+      "blocks": 89,
+      "personalFouls": 644,
+      "saves": 360,
+      "fieldSaves": 334,
+      "yellowCards": 5,
+      "twoMinutes": 86,
+      "redCards": 3,
+      "reports": 0
+    },
+    {
+      "rank": 6,
+      "team": {
+        "name": "상무피닉스",
+        "logoUrl": "https://www.koreahandball.com/static/images/logo_api/logo_m_2.png"
+      },
+      "goals": 554,
+      "fieldGoals": 496,
+      "goals6m": 153,
+      "goalsWing": 47,
+      "goals9m": 152,
+      "goals7m": 58,
+      "drawn7m": 85,
+      "goalsFast": 72,
+      "goalsBreakthrough": 65,
+      "assists": 245,
+      "passClearChances": 98,
+      "turnovers": 168,
+      "steals": 61,
+      "blocks": 51,
+      "personalFouls": 409,
+      "saves": 231,
+      "fieldSaves": 219,
+      "yellowCards": 4,
+      "twoMinutes": 58,
+      "redCards": 2,
+      "reports": 0
+    }
+  ]
 }
 ```
 

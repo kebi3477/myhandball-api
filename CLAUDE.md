@@ -39,6 +39,7 @@
 | `GET /api/schedule/ics/my-team` | 위 페이지를 1~12월 **순차 12회** 요청 | `W` | `2025` | — | 일정 캐시를 탐 |
 | `GET /api/ranking` | `/game/teamranking.php` | `W` | **`2024`** (갱신 안 됨) | `W`로 강제 | 없음 |
 | `GET /api/team` | `/introduce/team_{men,women}.php` | `W` | — | `W`로 강제 | `teams:{M\|W}`, **24시간** |
+| `GET /api/record/team` | `/record/` (기록실 > 팀기록) | **`M`** | 현재 시즌(`currentSeason()`) | 400 | `record:team:{g}:{season}:{type}`, 1시간 (빈 결과는 캐시 안 함) |
 
 새 엔드포인트는 `season` 기본값을 현재 시즌(2025)으로 둔다.
 
@@ -97,6 +98,10 @@
 - `playerranking.php`는 14개 카테고리의 TOP5만 준다. 제목은 `"득점 TOP5"` 형식이고
   1위는 `.rank_first`, 2~5위는 `.rank`로 마크업이 다르다
 - 존재하지 않는 `player_seq`도 200과 빈 골격(`"No. []"`)을 준다
+- 기록실 팀기록(`/record/`)은 좌 `#title_sort_table`(순위·팀) / 우 `#target_sort_table`(기록 21칸) 구조다.
+  헤더 윗단(슛·공격·수비·처벌)은 주석 처리돼 있어 실제 헤더는 1단이고, 열은 **헤더 이름으로** 찾는다
+  (`record.parser.ts`의 `HEADER_TO_KEY`). 우 표 `<tr>`에 `TEAM_NM`·`team_rank`·`TEAM_IMG` 속성이 있어 인덱스 병합이
+  필요 없다. 행 끝 주석 처리된 `<td>`는 무시된다. 시즌 시작 전에는 헤더만 있고 tbody가 비어 있다
 - 팀 페이지 탭 4개는 각각 별도 URL(`page_type=1` 소개·연혁, `2` 코칭스태프, `3` 선수,
   `4` 시즌별 팀기록)이다. 창단 연도와 연고지 전용 필드는 없어서 소개 본문에서 뽑는다.
   "창단 이후"처럼 연도가 창단이 아닌 문맥이 섞이고, 연고지를 적은 팀은 SK호크스와
@@ -323,6 +328,7 @@
 | 신고·차단 | `POST /api/team/:teamNum/cheer/:cheerId/report`, `GET/POST /api/block`, `DELETE /api/block/:authorId` |
 | sync | `GET /api/favorites/players`, `PUT/DELETE /api/favorites/players/:playerSeq`, `GET/PUT /api/progress/guide` |
 | app-version | `GET /api/app/version?platform=ios\|android` |
+| record | `GET /api/record/team` (팀 누적 기록 21개 항목, 분석 탭) |
 | admin | `GET /api/admin` (화면), `/api/admin/api/{tables,reports,cheers,backups}` (`ADMIN_TOKEN`) |
 
 - **live와 push는 "경기 중에 PBP가 실시간으로 갱신된다"는 미검증 가정 위에 있다.**

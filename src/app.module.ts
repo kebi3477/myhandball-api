@@ -24,6 +24,7 @@ import { SyncModule } from './sync/sync.module';
 import { AppVersionModule } from './app-version/app-version.module';
 import { AdminModule } from './admin/admin.module';
 import { SeasonModule } from './season/season.module';
+import { RecordModule } from './record/record.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { SeasonModule } from './season/season.module';
     AppVersionModule,
     AdminModule,
     SeasonModule,
+    RecordModule,
   ],
   controllers: [AppController],
   providers: [AppService],
